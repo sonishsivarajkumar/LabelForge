@@ -17,6 +17,12 @@ black>=21.0
 flake8>=3.9
 mypy>=0.910
 pre-commit>=2.15
+isort>=5.12.0
+bandit>=1.7.5
+pydocstyle>=6.3.0
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0
+myst-parser>=0.18.0
 
 [torch]
 torch>=1.9.0

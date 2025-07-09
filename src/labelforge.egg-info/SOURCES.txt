@@ -2,6 +2,7 @@ LICENSE
 README.md
 pyproject.toml
 src/labelforge/__init__.py
+src/labelforge/__main__.py
 src/labelforge/cli.py
 src/labelforge/datasets.py
 src/labelforge/label_model.py
@@ -14,3 +15,4 @@ src/labelforge.egg-info/entry_points.txt
 src/labelforge.egg-info/requires.txt
 src/labelforge.egg-info/top_level.txt
 tests/test_basic.py
+tests/test_labelforge.py
