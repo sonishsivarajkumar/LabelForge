@@ -6,7 +6,13 @@ import numpy as np
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from labelforge import lf, LabelModel, load_example_data, apply_lfs, Example  # noqa: E402,E501
+from labelforge import (
+    lf,
+    LabelModel,
+    load_example_data,
+    apply_lfs,
+    Example,
+)  # noqa: E402,E501
 from labelforge.lf import clear_lf_registry  # noqa: E402
 
 
