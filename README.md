@@ -1,9 +1,8 @@
 # LabelForge
 
-# LabelForge
-
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI](https://img.shields.io/badge/PyPI-0.1.0-green.svg)](https://pypi.org/project/labelforge/)
 [![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tests/)
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](docs/)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -49,12 +48,18 @@ Complete automation from raw data to trained models with configurable workflows
 - Real-time labeling function performance analysis
 ## Installation
 
-LabelForge requires Python 3.8+ and can be installed from source.
+LabelForge requires Python 3.8+ and can be installed from PyPI or source.
 
-### From Source (Recommended for Research)
+### From PyPI (Recommended)
 
 ```bash
-git clone https://github.com/yourusername/LabelForge.git
+pip install labelforge
+```
+
+### From Source (For Development)
+
+```bash
+git clone https://github.com/sonishsivarajkumar/LabelForge.git
 cd LabelForge
 pip install -e .
 ```
@@ -64,7 +69,7 @@ pip install -e .
 For contributing or extending the framework:
 
 ```bash
-git clone https://github.com/yourusername/LabelForge.git
+git clone https://github.com/sonishsivarajkumar/LabelForge.git
 cd LabelForge
 pip install -e ".[dev]"
 pre-commit install  # Optional: install git hooks
@@ -186,9 +191,11 @@ If you use LabelForge in academic work, please consider citing:
 ```bibtex
 @software{labelforge2025,
   title={LabelForge: Open-Source Framework for Programmatic Weak Supervision},
-  author={Your Name},
+  author={Sonish Sivarajkumar},
   year={2025},
-  url={https://github.com/yourusername/LabelForge}
+  url={https://github.com/sonishsivarajkumar/LabelForge},
+  version={0.1.0},
+  note={Available on PyPI: https://pypi.org/project/labelforge/}
 }
 ```
 
@@ -305,7 +312,7 @@ Performance scales linearly with dataset size and number of functions.
 - On-site training and consultation
 - SLA guarantees for uptime and performance
 
-Contact [enterprise@labelforge.ai](mailto:enterprise@labelforge.ai) for enterprise licensing and support.
+
 
 ---
 
@@ -364,7 +371,7 @@ LabelForge is an open-source project that welcomes contributions from researcher
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/LabelForge.git
+git clone https://github.com/sonishsivarajkumar/LabelForge.git
 cd LabelForge
 
 # Create development environment
@@ -399,7 +406,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 ### Getting Help
 
 - **📖 Documentation**: Browse the [docs/](docs/) directory
-- **🐛 Issues**: [Report bugs](https://github.com/yourusername/LabelForge/issues) and request features
+- **🐛 Issues**: [Report bugs](https://github.com/sonishsivarajkumar/LabelForge/issues) and request features
 - **💬 Discussions**: Share use cases and ask questions
 - **📧 Contact**: Reach out for research collaborations
 
@@ -452,5 +459,3 @@ LabelForge builds upon foundational research in weak supervision:
 Thanks to all contributors who help build and improve LabelForge. See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list.
 
 ---
-
-*Built with ❤️ for the research community*
