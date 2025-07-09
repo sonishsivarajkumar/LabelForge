@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @click.group()
 @click.version_option(version=__version__)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
-def main(verbose: bool):
+def main(verbose: bool) -> None:
     """LabelForge: Programmatic data labeling with weak supervision."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -46,7 +46,7 @@ def run(
     csv_file: Optional[str],
     jsonl_file: Optional[str],
     output: Optional[str],
-):
+) -> None:
     """Run the full LabelForge pipeline."""
     click.echo(f"🔨 LabelForge v{__version__} - Running pipeline...")
 
@@ -114,7 +114,7 @@ def run(
 
 
 @main.command()
-def lf_list():
+def lf_list() -> None:
     """List all registered labeling functions."""
     if not LF_REGISTRY:
         click.echo("No labeling functions registered.")
@@ -138,7 +138,7 @@ def lf_list():
 @click.option(
     "--sample-size", "-n", default=10, type=int, help="Number of examples to test"
 )
-def lf_test(dataset: str, sample_size: int):
+def lf_test(dataset: str, sample_size: int) -> None:
     """Test labeling functions on a sample dataset."""
     if not LF_REGISTRY:
         click.echo("No labeling functions registered.")
@@ -182,7 +182,7 @@ def lf_test(dataset: str, sample_size: int):
 @click.argument("name")
 @click.option("--tags", help="Comma-separated tags (e.g., type=regex,domain=medical)")
 @click.option("--description", help="Description of the LF")
-def lf_create(name: str, tags: Optional[str], description: Optional[str]):
+def lf_create(name: str, tags: Optional[str], description: Optional[str]) -> None:
     """Create a new labeling function template."""
     # Parse tags
     tag_dict = {}
@@ -210,10 +210,10 @@ from labelforge import lf
 def {name}(example):
     """
     {description or f"Labeling function: {name}"}
-    
+
     Args:
         example: Example object with .text, .metadata, .id attributes
-        
+
     Returns:
         Label (int): 1 for positive, 0 for negative, -1 for abstain
     """
@@ -223,7 +223,7 @@ def {name}(example):
     #     return 1
     # else:
     #     return 0
-    
+
     return -1  # Abstain by default
 '''
 
@@ -247,7 +247,7 @@ def {name}(example):
     type=click.Choice(["table", "json"]),
     help="Output format",
 )
-def lf_stats(output_format: str):
+def lf_stats(output_format: str) -> None:
     """Show statistics for all registered labeling functions."""
     if not LF_REGISTRY:
         click.echo("No labeling functions registered.")

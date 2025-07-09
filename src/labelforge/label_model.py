@@ -7,7 +7,7 @@ and correlations, then outputs probabilistic labels for training.
 
 import numpy as np
 import logging
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, List
 from scipy.special import logsumexp
 from sklearn.utils import check_random_state
 
@@ -52,13 +52,17 @@ class LabelModel:
         self.verbose = verbose
 
         # Model parameters (learned during fit)
-        self.class_priors_ = None  # π_y
-        self.lf_accuracies_ = None  # α_{j,y,ℓ}
-        self.n_lfs_ = None
-        self.lf_names_ = None
+        self.class_priors_: Optional[np.ndarray] = None  # π_y
+        self.lf_accuracies_: Optional[np.ndarray] = None  # α_{j,y,ℓ}
+        self.n_lfs_: Optional[int] = None
+        self.lf_names_: Optional[List[str]] = None
 
         # Training history
-        self.history_ = {"log_likelihood": [], "converged": False, "n_iter": 0}
+        self.history_: Dict[str, Any] = {
+            "log_likelihood": [],
+            "converged": False,
+            "n_iter": 0,
+        }
 
     def fit(self, lf_output: LFOutput) -> "LabelModel":
         """
@@ -135,7 +139,7 @@ class LabelModel:
         L = lf_output.votes
         log_probs, _ = self._e_step(L)
 
-        return np.exp(log_probs)
+        return np.exp(log_probs)  # type: ignore
 
     def predict(self, lf_output: LFOutput) -> np.ndarray:
         """
@@ -148,9 +152,9 @@ class LabelModel:
             Array of predicted class labels
         """
         probs = self.predict_proba(lf_output)
-        return np.argmax(probs, axis=1)
+        return np.argmax(probs, axis=1)  # type: ignore
 
-    def _initialize_parameters(self, L: np.ndarray, rng: np.random.RandomState):
+    def _initialize_parameters(self, L: np.ndarray, rng: np.random.RandomState) -> None:
         """Initialize model parameters randomly."""
         n_examples, n_lfs = L.shape
 
@@ -163,8 +167,12 @@ class LabelModel:
         n_vote_values = len(unique_votes)
 
         self.lf_accuracies_ = np.zeros((n_lfs, self.cardinality, n_vote_values))
-        self.vote_to_idx_ = {vote: idx for idx, vote in enumerate(unique_votes)}
-        self.idx_to_vote_ = {idx: vote for idx, vote in enumerate(unique_votes)}
+        self.vote_to_idx_: Dict[int, int] = {
+            vote: idx for idx, vote in enumerate(unique_votes)
+        }
+        self.idx_to_vote_: Dict[int, int] = {
+            idx: vote for idx, vote in enumerate(unique_votes)
+        }
 
         # Random initialization with some structure
         for j in range(n_lfs):
@@ -196,12 +204,15 @@ class LabelModel:
         for i in range(n_examples):
             for y in range(self.cardinality):
                 # Log P(Y_i = y)
-                log_prob = np.log(self.class_priors_[y])
+                if self.class_priors_ is not None:
+                    log_prob = np.log(self.class_priors_[y])
+                else:
+                    log_prob = 0.0
 
                 # Log ∏_j P(L_{i,j} | Y_i = y)
                 for j in range(n_lfs):
-                    vote = L[i, j]
-                    if vote in self.vote_to_idx_:
+                    vote = int(L[i, j])
+                    if vote in self.vote_to_idx_ and self.lf_accuracies_ is not None:
                         vote_idx = self.vote_to_idx_[vote]
                         log_prob += np.log(self.lf_accuracies_[j, y, vote_idx] + 1e-15)
 
@@ -211,11 +222,11 @@ class LabelModel:
         log_probs = log_probs - logsumexp(log_probs, axis=1, keepdims=True)
 
         # Compute log likelihood
-        log_likelihood = np.sum(logsumexp(log_probs, axis=1))
+        log_likelihood: float = np.sum(logsumexp(log_probs, axis=1))
 
         return log_probs, log_likelihood
 
-    def _m_step(self, L: np.ndarray, log_probs: np.ndarray):
+    def _m_step(self, L: np.ndarray, log_probs: np.ndarray) -> None:
         """
         M-step: update parameters given posterior probabilities.
 
@@ -232,20 +243,28 @@ class LabelModel:
         # Update LF accuracies: α_{j,y,ℓ} = Σ_i γ_{i,y} * 1{L_{i,j} = ℓ} / Σ_i γ_{i,y}
         for j in range(n_lfs):
             for y in range(self.cardinality):
-                class_weight = np.sum(probs[:, y])
+                class_weight: float = np.sum(probs[:, y])
 
                 if class_weight > 1e-15:  # Avoid division by zero
                     for vote_val, vote_idx in self.vote_to_idx_.items():
                         vote_mask = L[:, j] == vote_val
-                        numerator = np.sum(probs[vote_mask, y])
-                        self.lf_accuracies_[j, y, vote_idx] = numerator / class_weight
+                        numerator: float = np.sum(probs[vote_mask, y])
+                        if self.lf_accuracies_ is not None:
+                            self.lf_accuracies_[j, y, vote_idx] = (
+                                numerator / class_weight
+                            )
                 else:
                     # Uniform if no weight
-                    self.lf_accuracies_[j, y, :] = 1.0 / len(self.vote_to_idx_)
+                    if self.lf_accuracies_ is not None:
+                        self.lf_accuracies_[j, y, :] = 1.0 / len(self.vote_to_idx_)
 
     def get_lf_stats(self) -> Dict[str, Any]:
         """Get statistics about learned LF parameters."""
-        if self.lf_accuracies_ is None:
+        if (
+            self.lf_accuracies_ is None
+            or self.class_priors_ is None
+            or self.lf_names_ is None
+        ):
             raise ValueError("Model must be fitted first")
 
         stats = {

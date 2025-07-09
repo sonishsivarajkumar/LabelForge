@@ -264,7 +264,11 @@ def split_examples(
 
     # Shuffle examples
     shuffled = examples.copy()
-    np.random.shuffle(shuffled)
+    import random
+
+    if random_state is not None:
+        random.seed(random_state)
+    random.shuffle(shuffled)
 
     n_examples = len(shuffled)
     n_train = int(n_examples * train_ratio)

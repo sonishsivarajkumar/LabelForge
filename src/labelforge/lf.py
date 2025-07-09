@@ -2,7 +2,7 @@
 Labeling Function API and registry for LabelForge.
 """
 
-from typing import Any, Optional, Callable
+from typing import Any, Optional, Callable, Dict, List
 import logging
 import numpy as np
 
@@ -20,7 +20,7 @@ class LabelingFunction:
         self,
         name: str,
         func: Callable[[Example], Label],
-        tags: Optional[dict[str, Any]] = None,
+        tags: Optional[Dict[str, Any]] = None,
         abstain_label: Label = ABSTAIN,
         description: Optional[str] = None,
     ):
@@ -49,11 +49,11 @@ class LabelingFunction:
             logger.warning(f"LF {self.name} failed on example {example.id}: {e}")
             return self.abstain_label
 
-    def apply(self, examples: list[Example]) -> np.ndarray:
+    def apply(self, examples: List[Example]) -> np.ndarray:
         """Apply the LF to a list of examples."""
-        return np.array([self(ex) for ex in examples])
+        return np.array([self(ex) for ex in examples])  # type: ignore
 
-    def reset_stats(self):
+    def reset_stats(self) -> None:
         """Reset performance tracking statistics."""
         self.n_calls = 0
         self.n_abstains = 0
@@ -78,12 +78,12 @@ class LabelingFunction:
 
 
 # Global registry for labeling functions
-LF_REGISTRY: dict[str, LabelingFunction] = {}
+LF_REGISTRY: Dict[str, LabelingFunction] = {}
 
 
 def lf(
     name: Optional[str] = None,
-    tags: Optional[dict[str, Any]] = None,
+    tags: Optional[Dict[str, Any]] = None,
     abstain_label: Label = ABSTAIN,
     description: Optional[str] = None,
 ) -> Callable[[Callable], LabelingFunction]:
@@ -122,7 +122,7 @@ def lf(
 
 
 def apply_lfs(
-    examples: list[Example], lfs: Optional[list[LabelingFunction]] = None
+    examples: List[Example], lfs: Optional[List[LabelingFunction]] = None
 ) -> LFOutput:
     """
     Apply multiple labeling functions to a dataset.
@@ -145,7 +145,7 @@ def apply_lfs(
         lf.reset_stats()
 
     # Apply each LF to all examples
-    votes = np.zeros((len(examples), len(lfs)), dtype=int)
+    votes: np.ndarray = np.zeros((len(examples), len(lfs)), dtype=int)
 
     for j, lf in enumerate(lfs):
         logger.info(f"Applying LF: {lf.name}")
@@ -153,15 +153,19 @@ def apply_lfs(
 
     return LFOutput(
         votes=votes,
-        lf_names=[lf.name for lf in lfs],
-        example_ids=[ex.id for ex in examples],
+        lf_names=[
+            lf.name if lf.name is not None else f"lf_{j}" for j, lf in enumerate(lfs)
+        ],
+        example_ids=[
+            ex.id if ex.id is not None else f"ex_{i}" for i, ex in enumerate(examples)
+        ],
         abstain_value=ABSTAIN,
     )
 
 
-def get_lf_summary() -> dict[str, Any]:
+def get_lf_summary() -> Dict[str, Any]:
     """Get summary statistics for all registered LFs."""
-    summary = {"total_lfs": len(LF_REGISTRY), "lfs": {}}
+    summary: Dict[str, Any] = {"total_lfs": len(LF_REGISTRY), "lfs": {}}
 
     for name, lf in LF_REGISTRY.items():
         summary["lfs"][name] = {
@@ -176,14 +180,14 @@ def get_lf_summary() -> dict[str, Any]:
     return summary
 
 
-def clear_lf_registry():
+def clear_lf_registry() -> None:
     """Clear all registered labeling functions."""
     LF_REGISTRY.clear()
 
 
 # Factory functions for creating LFs (not decorated)
 def keyword_contains_factory(
-    keywords: list[str], case_sensitive: bool = False
+    keywords: List[str], case_sensitive: bool = False
 ) -> LabelingFunction:
     """Factory for creating keyword matching LFs."""
 

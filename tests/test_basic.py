@@ -1,14 +1,13 @@
 # Basic test suite for LabelForge
 import sys
 import os
+import numpy as np
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-import numpy as np
-from labelforge import lf, LabelModel, load_example_data, apply_lfs, Example
-from labelforge.types import ABSTAIN
-from labelforge.lf import clear_lf_registry
+from labelforge import lf, LabelModel, load_example_data, apply_lfs, Example  # noqa: E402,E501
+from labelforge.lf import clear_lf_registry  # noqa: E402
 
 
 def test_basic_lf():

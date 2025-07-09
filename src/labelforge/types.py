@@ -2,7 +2,7 @@
 Core types and data structures for LabelForge.
 """
 
-from typing import Any, Union, Optional
+from typing import Any, Union, Optional, Dict, List
 from dataclasses import dataclass
 import numpy as np
 
@@ -24,11 +24,11 @@ class Example:
     """
 
     text: str
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
     features: Optional[np.ndarray] = None
     id: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
         if self.id is None:
@@ -48,21 +48,21 @@ class LFOutput:
     """
 
     votes: np.ndarray
-    lf_names: list[str]
-    example_ids: list[str]
+    lf_names: List[str]
+    example_ids: List[str]
     abstain_value: Label = ABSTAIN
 
     @property
     def n_examples(self) -> int:
-        return self.votes.shape[0]
+        return int(self.votes.shape[0])
 
     @property
     def n_lfs(self) -> int:
-        return self.votes.shape[1]
+        return int(self.votes.shape[1])
 
     def coverage(self) -> np.ndarray:
         """Coverage (% non-abstain) for each LF."""
-        return np.mean(self.votes != self.abstain_value, axis=0)
+        return np.mean(self.votes != self.abstain_value, axis=0)  # type: ignore
 
     def overlap(self) -> np.ndarray:
         """Pairwise overlap matrix between LFs."""
@@ -75,7 +75,7 @@ class LFOutput:
                 if np.sum(both_vote) > 0:
                     overlap_matrix[i, j] = np.sum(both_vote) / self.n_examples
 
-        return overlap_matrix
+        return overlap_matrix  # type: ignore
 
     def conflict(self) -> np.ndarray:
         """Pairwise conflict matrix between LFs."""
@@ -90,4 +90,4 @@ class LFOutput:
                     disagree = self.votes[both_vote, i] != self.votes[both_vote, j]
                     conflict_matrix[i, j] = np.mean(disagree)
 
-        return conflict_matrix
+        return conflict_matrix  # type: ignore
