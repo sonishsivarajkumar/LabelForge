@@ -1,0 +1,128 @@
+Metadata-Version: 2.4
+Name: labelforge
+Version: 0.1.0
+Summary: Open-source platform for programmatic data labeling and weak supervision
+Author-email: Sonish Sivarajkumar <sonish@example.com>
+Project-URL: Homepage, https://github.com/sonishsivarajkumar/LabelForge
+Project-URL: Bug Reports, https://github.com/sonishsivarajkumar/LabelForge/issues
+Project-URL: Source, https://github.com/sonishsivarajkumar/LabelForge
+Project-URL: Documentation, https://labelforge.readthedocs.io
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.20.0
+Requires-Dist: pandas>=1.3.0
+Requires-Dist: scipy>=1.7.0
+Requires-Dist: scikit-learn>=1.0.0
+Requires-Dist: tqdm>=4.60.0
+Requires-Dist: pyyaml>=5.4.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: rich>=12.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov>=2.12; extra == "dev"
+Requires-Dist: black>=21.0; extra == "dev"
+Requires-Dist: flake8>=3.9; extra == "dev"
+Requires-Dist: mypy>=0.910; extra == "dev"
+Requires-Dist: pre-commit>=2.15; extra == "dev"
+Provides-Extra: torch
+Requires-Dist: torch>=1.9.0; extra == "torch"
+Requires-Dist: transformers>=4.12.0; extra == "torch"
+Provides-Extra: web
+Requires-Dist: fastapi>=0.68.0; extra == "web"
+Requires-Dist: uvicorn>=0.15.0; extra == "web"
+Requires-Dist: jinja2>=3.0.0; extra == "web"
+Provides-Extra: all
+Requires-Dist: labelforge[dev,torch,web]; extra == "all"
+Dynamic: license-file
+
+# LabelForge
+
+**Lead Maintainer:** Sonish Sivarajkumar
+
+## Overview
+
+LabelForge is an open-source Python platform for programmatic data labeling and weak supervision. It empowers teams to write simple, reusable labeling functions (LFs) that "vote" on unlabeled data, then combines these noisy signals via a probabilistic label model to produce high-quality training labels. With built-in analytics, a CLI, and an optional web UI, LabelForge streamlines the entire data development workflow—no manual annotation headaches, no vendor lock-in.
+
+## Key Features
+
+### 🔧 Labeling Function Engine
+- Define LFs in pure Python with a `@lf` decorator
+- Support for heuristics: regex, keyword lists, small ML models
+- Automatic LF registration and metadata (name, tags, abstain value)
+
+### 🧠 Probabilistic Label Model
+- Implements an EM-based generative model to learn LF accuracies and correlations
+- Converts noisy LF votes into soft labels for downstream training
+- Exposes `.fit()`, `.predict_proba()`, and evaluation metrics
+
+### 🚀 End-to-End Pipeline
+```bash
+labelforge run --config config.yaml
+```
+Orchestrates LF execution → label modeling → discriminative model training → evaluation
+
+### 📊 Analytics & Monitoring
+- Per-LF coverage, conflict, and accuracy reports
+- Conflict matrix heatmaps to identify redundant or low-value LFs
+- Drift detection for LF performance over time
+
+### 🎨 Web UI (Optional)
+- React + Tailwind interface for LF development, testing, and visualization
+- Dataset preview with label overlays and LF vote highlights
+- Interactive dashboard for training job monitoring and metrics
+
+## Quick Start
+
+```bash
+pip install labelforge
+```
+
+```python
+from labelforge import lf, LabelModel
+from labelforge.datasets import load_example_data
+
+# Define labeling functions
+@lf(name="mention_diabetes", tags={"entity": "disease"})
+def lf_mention_diabetes(example):
+    return 1 if "diabetes" in example.text.lower() else 0
+
+@lf(name="mention_cancer", tags={"entity": "disease"})
+def lf_mention_cancer(example):
+    return 1 if "cancer" in example.text.lower() else 0
+
+# Load data and apply LFs
+data = load_example_data("medical_texts")
+label_model = LabelModel()
+label_model.fit(data)
+
+# Get probabilistic labels
+soft_labels = label_model.predict_proba(data)
+```
+
+## Roadmap
+
+- **v1.0 (MVP)**: Core LF API, label model, CLI, detailed docs, GitHub Pages WebUI
+- **v1.1**: Discriminative trainer, evaluation dashboard, minimal UI
+- **v2.0**: Plugin system, advanced analytics, LLM-enhanced LF suggestions
+- **Future**: Real-time streaming support, end-to-end AutoML workflows, multi-modal labeling
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## License
+
+Apache-2.0 License - see [LICENSE](LICENSE) for details.

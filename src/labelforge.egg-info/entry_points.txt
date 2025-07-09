@@ -1,0 +1,2 @@
+[console_scripts]
+labelforge = labelforge.cli:main
