@@ -3,8 +3,8 @@
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PyPI](https://img.shields.io/badge/PyPI-0.1.0-green.svg)](https://pypi.org/project/labelforge/)
-[![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tests/)
-[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](docs/)
+[![Tests](https://github.com/sonishsivarajkumar/LabelForge/workflows/CI/badge.svg)](https://github.com/sonishsivarajkumar/LabelForge/actions)
+[![Documentation](https://img.shields.io/badge/docs-github.io-brightgreen.svg)](https://sonishsivarajkumar.github.io/LabelForge/)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 **Open-source framework for programmatic weak supervision and data labeling**
@@ -124,7 +124,7 @@ print(f"Predictions: {predictions}")
 print(f"Probabilities shape: {probs.shape}")
 ```
 
-For more examples, see the [examples/](examples/) directory and [documentation](docs/).
+For more examples, see the [examples/](examples/) directory and [documentation](https://sonishsivarajkumar.github.io/LabelForge/).
 
 ## API Reference
 
@@ -405,7 +405,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Getting Help
 
-- **📖 Documentation**: Browse the [docs/](docs/) directory
+- **📖 Documentation**: Visit our [GitHub Pages site](https://sonishsivarajkumar.github.io/LabelForge/)
 - **🐛 Issues**: [Report bugs](https://github.com/sonishsivarajkumar/LabelForge/issues) and request features
 - **💬 Discussions**: Share use cases and ask questions
 - **📧 Contact**: Reach out for research collaborations
