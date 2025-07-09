@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - LabelForge</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="text-2xl font-bold text-blue-600">LabelForge</a>
+                    <div class="ml-6 flex space-x-8">
+                        <a href="index.html" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">Home</a>
+                        <span class="text-blue-600 px-3 py-2 text-sm font-medium border-b-2 border-blue-600">Getting Started</span>
+                        <a href="examples/" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">Examples</a>
+                        <a href="api.html" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">API</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h1 class="text-4xl md:text-5xl font-bold mb-4">Getting Started with LabelForge</h1>
+                <p class="text-xl text-blue-100 max-w-3xl mx-auto">
+                    Learn how to build your first programmatic data labeling system in minutes
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="grid lg:grid-cols-4 gap-8">
+            <!-- Sidebar -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
+                    <h3 class="font-semibold mb-4">Quick Navigation</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="#installation" class="text-blue-600 hover:underline">Installation</a></li>
+                        <li><a href="#first-steps" class="text-gray-600 hover:text-gray-900">First Steps</a></li>
+                        <li><a href="#basic-example" class="text-gray-600 hover:text-gray-900">Basic Example</a></li>
+                        <li><a href="#advanced-features" class="text-gray-600 hover:text-gray-900">Advanced Features</a></li>
+                        <li><a href="#next-steps" class="text-gray-600 hover:text-gray-900">Next Steps</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="lg:col-span-3">
+                <!-- Installation Section -->
+                <section id="installation" class="mb-12">
+                    <h2 class="text-3xl font-bold mb-6">Installation</h2>
+                    
+                    <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
+                        <h3 class="text-xl font-semibold mb-4">System Requirements</h3>
+                        <ul class="space-y-2 text-gray-600">
+                            <li>• Python 3.8 or higher</li>
+                            <li>• 4GB RAM minimum (8GB+ recommended for large datasets)</li>
+                            <li>• 1GB free disk space</li>
+                            <li>• Internet connection for initial setup</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
+                        <h3 class="text-xl font-semibold mb-4">Quick Install</h3>
+                        <pre class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto mb-4"><code># Install from PyPI (recommended)
+pip install labelforge
+
+# Or install from source
+git clone https://github.com/sonishsivarajkumar/LabelForge.git
+cd LabelForge
+pip install -e .</code></pre>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm border p-6">
+                        <h3 class="text-xl font-semibold mb-4">Verify Installation</h3>
+                        <pre class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto mb-4"><code>python -c "import labelforge; print('LabelForge installed successfully!')"
+labelforge --version</code></pre>
+                    </div>
+                </section>
+
+                <!-- First Steps Section -->
+                <section id="first-steps" class="mb-12">
+                    <h2 class="text-3xl font-bold mb-6">Your First 5 Minutes</h2>
+                    
+                    <div class="bg-white rounded-lg shadow-sm border p-6">
+                        <h3 class="text-xl font-semibold mb-4">Create Your First Labeling Function</h3>
+                        <p class="text-gray-600 mb-4">
+                            Let's start with a simple sentiment analysis example. Copy and paste this code into a Python file:
+                        </p>
+                        
+                        <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4"><code>from labelforge import lf, Example
+
+# Define a simple labeling function
+@lf(name="positive_sentiment")
+def detect_positive_sentiment(example):
+    """Detect positive sentiment based on keywords."""
+    positive_words = ["excellent", "amazing", "love", "great", "awesome", "fantastic"]
+    text = example.text.lower()
+    
+    # Return 1 for positive, 0 for negative/neutral
+    return 1 if any(word in text for word in positive_words) else 0
+
+# Test with sample data
+test_texts = [
+    "This product is absolutely amazing!",
+    "I love the new features.",
+    "The service was terrible.",
+    "It's an okay product, nothing special."
+]
+
+# Create examples and test the function
+for text in test_texts:
+    example = Example(text=text)
+    label = detect_positive_sentiment(example)
+    print(f"Text: '{text}' -> Label: {label}")
+</code></pre>
+                        
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                            <p class="text-green-800 font-medium">Expected Output:</p>
+                            <pre class="text-green-700 text-sm mt-2">Text: 'This product is absolutely amazing!' -> Label: 1
+Text: 'I love the new features.' -> Label: 1
+Text: 'The service was terrible.' -> Label: 0
+Text: 'It's an okay product, nothing special.' -> Label: 0</pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Basic Example Section -->
+                <section id="basic-example" class="mb-12">
+                    <h2 class="text-3xl font-bold mb-6">Complete Working Example</h2>
+                    
+                    <div class="bg-white rounded-lg shadow-sm border p-6">
+                        <h3 class="text-xl font-semibold mb-4">Multi-Function Sentiment Analysis</h3>
+                        
+                        <pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4"><code>from labelforge import lf, LabelModel, apply_lfs
+from labelforge.types import Example
+
+# Define multiple labeling functions
+@lf(name="positive_keywords")
+def lf_positive_keywords(example):
+    positive_words = ["excellent", "amazing", "love", "great", "awesome", "fantastic"]
+    return 1 if any(word in example.text.lower() for word in positive_words) else 0
+
+@lf(name="negative_keywords")
+def lf_negative_keywords(example):
+    negative_words = ["terrible", "awful", "hate", "worst", "horrible", "disgusting"]
+    return 1 if any(word in example.text.lower() for word in negative_words) else 0
+
+@lf(name="exclamation_positive")
+def lf_exclamation_positive(example):
+    # Positive exclamations often indicate enthusiasm
+    return 1 if "!" in example.text and len(example.text.split()) > 3 else 0
+
+@lf(name="question_concerns")
+def lf_question_concerns(example):
+    # Questions about problems might indicate negative sentiment
+    concern_words = ["problem", "issue", "wrong", "broken", "error"]
+    return 1 if "?" in example.text and any(word in example.text.lower() for word in concern_words) else 0
+
+# Create sample dataset
+sample_reviews = [
+    "This product is absolutely amazing! I love it!",
+    "Terrible quality, worst purchase ever.",
+    "What's wrong with this item? It seems broken.",
+    "Good value for money, works as expected.",
+    "The service was fantastic and exceeded my expectations!",
+    "I hate this product, it's completely awful.",
+    "Average product, nothing special but does the job.",
+    "Why is this so expensive? Not worth the price.",
+    "Excellent build quality and great customer service!",
+    "This is the worst experience I've ever had."
+]
+
+# Convert to Example objects
+examples = [Example(text=text) for text in sample_reviews]
+
+# Apply labeling functions
+lf_output = apply_lfs(examples)
+
+print(f"Applied {lf_output.n_lfs} labeling functions to {lf_output.n_examples} examples")
+print(f"Vote matrix shape: {lf_output.votes.shape}")
+
+# Analyze labeling function performance
+coverage = lf_output.coverage()
+print("\nLabeling Function Coverage:")
+for i, lf_name in enumerate(lf_output.lf_names):
+    print(f"  {lf_name}: {coverage[i]:.2f}")
+
+# Train the probabilistic label model
+label_model = LabelModel(cardinality=2, verbose=True)
+label_model.fit(lf_output)
+
+# Generate final predictions
+predictions = label_model.predict_proba(lf_output)
+hard_predictions = label_model.predict(lf_output)
+
+print(f"\nModel converged in {label_model.history_['n_iter']} iterations")
+print("\nFinal Predictions:")
+for i, (example, pred, prob) in enumerate(zip(examples, hard_predictions, predictions)):
+    sentiment = "Positive" if pred == 1 else "Negative"
+    confidence = max(prob)
+    print(f"{i+1:2d}. {sentiment} ({confidence:.3f}): {example.text}")
+</code></pre>
+                        
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                            <p class="text-blue-800 font-medium">Key Concepts Demonstrated:</p>
+                            <ul class="text-blue-700 text-sm mt-2 space-y-1">
+                                <li>• Multiple labeling functions with different strategies</li>
+                                <li>• Automatic function registration and application</li>
+                                <li>• Coverage analysis to understand function performance</li>
+                                <li>• Probabilistic model training with EM algorithm</li>
+                                <li>• Confidence scores for final predictions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Advanced Features Section -->
+                <section id="advanced-features" class="mb-12">
+                    <h2 class="text-3xl font-bold mb-6">Advanced Features</h2>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-lg shadow-sm border p-6">
+                            <h3 class="text-lg font-semibold mb-3">Function Metadata</h3>
+                            <pre class="bg-gray-900 text-gray-100 p-3 rounded text-sm overflow-x-auto"><code>@lf(name="custom_function",
+   tags={"domain": "sentiment", "type": "rule"},
+   description="Detects sentiment patterns")
+def my_function(example):
+    # Your logic here
+    return 1 if condition else 0</code></pre>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow-sm border p-6">
+                            <h3 class="text-lg font-semibold mb-3">Conflict Analysis</h3>
+                            <pre class="bg-gray-900 text-gray-100 p-3 rounded text-sm overflow-x-auto"><code># Analyze function conflicts
+overlap = lf_output.overlap()
+conflicts = lf_output.conflict()
+
+print("Function overlap matrix:")
+print(overlap)
+print("Function conflict matrix:")
+print(conflicts)</code></pre>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow-sm border p-6">
+                            <h3 class="text-lg font-semibold mb-3">Model Diagnostics</h3>
+                            <pre class="bg-gray-900 text-gray-100 p-3 rounded text-sm overflow-x-auto"><code># Get model statistics
+stats = label_model.get_lf_stats()
+print("Learned function accuracies:")
+for name, acc in stats['lf_accuracies'].items():
+    print(f"  {name}: {acc}")</code></pre>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow-sm border p-6">
+                            <h3 class="text-lg font-semibold mb-3">CLI Interface</h3>
+                            <pre class="bg-gray-900 text-gray-100 p-3 rounded text-sm overflow-x-auto"><code># Command line usage
+labelforge run --dataset my_data.csv
+labelforge lf-list
+labelforge lf-stats --show-conflicts</code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Next Steps Section -->
+                <section id="next-steps" class="mb-12">
+                    <h2 class="text-3xl font-bold mb-6">Next Steps</h2>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <a href="tutorials.html" class="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition">
+                            <h3 class="text-xl font-semibold mb-3 text-blue-600">Detailed Tutorials</h3>
+                            <p class="text-gray-600">Step-by-step guides for specific use cases like NER, classification, and image labeling.</p>
+                        </a>
+                        
+                        <a href="examples/" class="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition">
+                            <h3 class="text-xl font-semibold mb-3 text-green-600">Real-World Examples</h3>
+                            <p class="text-gray-600">Production-ready examples from different domains and industries.</p>
+                        </a>
+                        
+                        <a href="api.html" class="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition">
+                            <h3 class="text-xl font-semibold mb-3 text-purple-600">API Reference</h3>
+                            <p class="text-gray-600">Complete documentation of all classes, functions, and parameters.</p>
+                        </a>
+                        
+                        <a href="https://github.com/sonishsivarajkumar/LabelForge" class="block bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition">
+                            <h3 class="text-xl font-semibold mb-3 text-gray-600">GitHub Repository</h3>
+                            <p class="text-gray-600">Source code, issue tracking, and community discussions.</p>
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Support Section -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-yellow-800">Need Help?</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-medium text-yellow-800 mb-2">Community Support</h4>
+                            <ul class="text-yellow-700 text-sm space-y-1">
+                                <li>• <a href="https://github.com/sonishsivarajkumar/LabelForge/discussions" class="hover:underline">GitHub Discussions</a></li>
+                                <li>• <a href="https://github.com/sonishsivarajkumar/LabelForge/issues" class="hover:underline">Issue Tracker</a></li>
+                                <li>• <a href="mailto:help@labelforge.ai" class="hover:underline">Email Support</a></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-yellow-800 mb-2">Resources</h4>
+                            <ul class="text-yellow-700 text-sm space-y-1">
+                                <li>• <a href="tutorials.html" class="hover:underline">Video Tutorials</a></li>
+                                <li>• <a href="#" class="hover:underline">Best Practices Guide</a></li>
+                                <li>• <a href="#" class="hover:underline">Troubleshooting</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+</html>

@@ -17,7 +17,7 @@ from .datasets import load_example_data
 
 __all__ = [
     "lf",
-    "LabelingFunction", 
+    "LabelingFunction",
     "LF_REGISTRY",
     "apply_lfs",
     "LabelModel",

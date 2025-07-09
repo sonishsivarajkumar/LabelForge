@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examples - LabelForge</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="../index.html" class="text-2xl font-bold text-blue-600">LabelForge</a>
+                    <div class="ml-6 flex space-x-8">
+                        <a href="../index.html" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">Home</a>
+                        <a href="../api.html" class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium">API Reference</a>
+                        <span class="text-blue-600 px-3 py-2 text-sm font-medium">Examples</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold mb-4">Examples</h1>
+            <p class="text-xl text-gray-600">
+                Real-world examples demonstrating LabelForge capabilities across different domains and use cases.
+            </p>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+            <!-- Text Classification Example -->
+            <div class="bg-white rounded-xl shadow-sm border">
+                <div class="p-6 border-b">
+                    <h2 class="text-xl font-bold mb-2">Sentiment Analysis</h2>
+                    <p class="text-gray-600">Binary sentiment classification using keyword-based labeling functions.</p>
+                </div>
+                <div class="p-6">
+                    <pre class="text-sm overflow-x-auto"><code class="language-python">from labelforge import lf, LabelModel, apply_lfs
+from labelforge.types import Example
+
+# Define labeling functions
+@lf(name="positive_keywords", tags={"domain": "sentiment"})
+def positive_sentiment(example):
+    positive = ["excellent", "amazing", "love", "perfect", "great"]
+    text = example.text.lower()
+    return 1 if any(word in text for word in positive) else 0
+
+@lf(name="negative_keywords", tags={"domain": "sentiment"})
+def negative_sentiment(example):
+    negative = ["terrible", "awful", "hate", "worst", "horrible"]
+    text = example.text.lower()
+    return 1 if any(word in text for word in negative) else 0
+
+@lf(name="positive_punctuation", tags={"domain": "sentiment"})
+def positive_punctuation(example):
+    return 1 if "!!!" in example.text else 0
+
+# Sample data
+examples = [
+    Example("This movie is excellent!!!"),
+    Example("Terrible acting and awful plot"),
+    Example("Just an average film"),
+    Example("I love this product, it's amazing"),
+    Example("Worst purchase ever, hate it")
+]
+
+# Apply labeling functions
+lf_output = apply_lfs(examples)
+print(f"Coverage: {lf_output.coverage()}")
+
+# Train model
+model = LabelModel(cardinality=2, verbose=True)
+model.fit(lf_output)
+
+# Generate labels
+predictions = model.predict_proba(lf_output)
+print("Soft labels:", predictions)</code></pre>
+                    <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <strong>Use Case:</strong> Social media monitoring, product reviews, customer feedback analysis
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical Text Example -->
+            <div class="bg-white rounded-xl shadow-sm border">
+                <div class="p-6 border-b">
+                    <h2 class="text-xl font-bold mb-2">Medical Text Classification</h2>
+                    <p class="text-gray-600">Identifying diabetes-related medical texts with domain expertise.</p>
+                </div>
+                <div class="p-6">
+                    <pre class="text-sm overflow-x-auto"><code class="language-python">import re
+from labelforge import lf, LabelModel
+from labelforge.datasets import load_example_data
+
+@lf(name="diabetes_direct", tags={"domain": "medical", "type": "direct"})
+def diabetes_mentions(example):
+    """Direct mentions of diabetes."""
+    keywords = ["diabetes", "diabetic"]
+    return 1 if any(k in example.text.lower() for k in keywords) else 0
+
+@lf(name="diabetes_symptoms", tags={"domain": "medical", "type": "symptoms"})
+def diabetes_symptoms(example):
+    """Diabetes-related symptoms and indicators."""
+    symptoms = ["glucose", "insulin", "blood sugar", "neuropathy"]
+    return 1 if any(s in example.text.lower() for s in symptoms) else 0
+
+@lf(name="diabetes_management", tags={"domain": "medical", "type": "treatment"})
+def diabetes_management(example):
+    """Diabetes management and treatment terms."""
+    management = ["diabetes management", "diabetic care", "glucose monitoring"]
+    return 1 if any(m in example.text.lower() for m in management) else 0
+
+@lf(name="diabetes_negation", tags={"domain": "medical", "type": "negation"})
+def diabetes_negation(example):
+    """Explicit negation of diabetes."""
+    negations = ["no diabetes", "not diabetic", "diabetes-free"]
+    return 0 if any(n in example.text.lower() for n in negations) else -1
+
+@lf(name="diabetes_medication", tags={"domain": "medical", "type": "medication"})
+def diabetes_medication(example):
+    """Diabetes-specific medications."""
+    meds = ["metformin", "insulin injection", "diabetes medication"]
+    return 1 if any(m in example.text.lower() for m in meds) else 0
+
+# Load medical dataset
+examples = load_example_data("medical_texts")
+
+# Apply and analyze
+lf_output = apply_lfs(examples)
+
+# Show LF interactions
+print("LF Overlap Matrix:")
+print(lf_output.overlap())
+print("\nLF Conflict Matrix:")
+print(lf_output.conflict())
+
+# Train label model
+model = LabelModel(cardinality=2, max_iter=100, verbose=True)
+model.fit(lf_output)
+
+# Analyze learned parameters
+stats = model.get_lf_stats()
+print(f"\nClass priors: {stats['class_priors']}")
+for lf_name, lf_stats in stats['lf_accuracies'].items():
+    print(f"{lf_name}: {lf_stats['accuracy_matrix']}")</code></pre>
+                    <div class="mt-4 p-4 bg-green-50 rounded-lg">
+                        <p class="text-sm text-green-800">
+                            <strong>Use Case:</strong> Clinical decision support, medical record analysis, research data curation
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Named Entity Recognition Example -->
+            <div class="bg-white rounded-xl shadow-sm border">
+                <div class="p-6 border-b">
+                    <h2 class="text-xl font-bold mb-2">Named Entity Recognition</h2>
+                    <p class="text-gray-600">Identifying person names and organizations using regex and patterns.</p>
+                </div>
+                <div class="p-6">
+                    <pre class="text-sm overflow-x-auto"><code class="language-python">import re
+from labelforge import lf, LabelModel, apply_lfs
+from labelforge.types import Example
+
+@lf(name="person_regex", tags={"entity": "person", "method": "regex"})
+def person_names(example):
+    """Detect person names using regex patterns."""
+    # Simple pattern for First Last name
+    pattern = r'\b[A-Z][a-z]+ [A-Z][a-z]+\b'
+    return 1 if re.search(pattern, example.text) else 0
+
+@lf(name="person_titles", tags={"entity": "person", "method": "keyword"})
+def person_titles(example):
+    """Detect person names by titles."""
+    titles = ["Dr.", "Prof.", "Mr.", "Ms.", "Mrs."]
+    return 1 if any(title in example.text for title in titles) else 0
+
+@lf(name="organization_indicators", tags={"entity": "org", "method": "keyword"})
+def organization_names(example):
+    """Detect organizations by indicators."""
+    indicators = ["Inc.", "Corp.", "LLC", "Company", "University", "Hospital"]
+    return 1 if any(ind in example.text for ind in indicators) else 0
+
+@lf(name="organization_regex", tags={"entity": "org", "method": "regex"})
+def organization_regex(example):
+    """Detect organizations using regex."""
+    # Pattern for capitalized multi-word organizations
+    pattern = r'\b(?:[A-Z][a-z]+ ){1,3}(?:Inc\.|Corp\.|LLC|Company)\b'
+    return 1 if re.search(pattern, example.text) else 0
+
+@lf(name="location_indicators", tags={"entity": "location", "method": "keyword"})
+def location_names(example):
+    """Detect locations by common indicators."""
+    indicators = ["City", "State", "Avenue", "Street", "Boulevard", "County"]
+    return 1 if any(ind in example.text for ind in indicators) else 0
+
+# Sample text data
+examples = [
+    Example("Dr. John Smith works at Microsoft Corp."),
+    Example("Jane Doe visited New York City last week."),
+    Example("The meeting is at Stanford University."),
+    Example("Contact Mr. Brown at ABC Company Inc."),
+    Example("This is just regular text without entities."),
+    Example("Prof. Williams published a paper on AI."),
+    Example("Google LLC announced new products."),
+]
+
+# Apply labeling functions
+lf_output = apply_lfs(examples)
+
+# Analyze coverage and conflicts
+print("LF Coverage:", lf_output.coverage())
+print("LF Names:", lf_output.lf_names)
+
+# Train model for each entity type separately
+# (In practice, you'd use multi-class or sequence labeling)
+model = LabelModel(cardinality=2, max_iter=50)
+model.fit(lf_output)
+
+predictions = model.predict_proba(lf_output)
+hard_predictions = model.predict(lf_output)
+
+# Show results
+for i, example in enumerate(examples):
+    print(f"Text: {example.text}")
+    print(f"Prediction: {hard_predictions[i]} (confidence: {max(predictions[i]):.3f})")
+    print()</code></pre>
+                    <div class="mt-4 p-4 bg-purple-50 rounded-lg">
+                        <p class="text-sm text-purple-800">
+                            <strong>Use Case:</strong> Information extraction, document processing, knowledge graph construction
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced ML Integration Example -->
+            <div class="bg-white rounded-xl shadow-sm border">
+                <div class="p-6 border-b">
+                    <h2 class="text-xl font-bold mb-2">ML Model Integration</h2>
+                    <p class="text-gray-600">Combining LabelForge with pre-trained models and external APIs.</p>
+                </div>
+                <div class="p-6">
+                    <pre class="text-sm overflow-x-auto"><code class="language-python"># Requires: pip install transformers torch textblob
+from transformers import pipeline
+from textblob import TextBlob
+from labelforge import lf, LabelModel, apply_lfs
+from labelforge.types import Example
+
+# Initialize pre-trained models
+sentiment_pipeline = pipeline("sentiment-analysis", 
+                             model="cardiffnlp/twitter-roberta-base-sentiment-latest")
+
+@lf(name="huggingface_sentiment", tags={"method": "transformer", "source": "huggingface"})
+def hf_sentiment(example):
+    """Use HuggingFace transformer for sentiment."""
+    result = sentiment_pipeline(example.text)[0]
+    # Convert to binary (positive=1, negative/neutral=0)
+    return 1 if result['label'] == 'LABEL_2' and result['score'] > 0.7 else 0
+
+@lf(name="textblob_sentiment", tags={"method": "traditional_ml", "source": "textblob"})
+def textblob_sentiment(example):
+    """Use TextBlob for sentiment analysis."""
+    blob = TextBlob(example.text)
+    # TextBlob polarity: -1 (negative) to 1 (positive)
+    return 1 if blob.sentiment.polarity > 0.3 else 0
+
+@lf(name="length_heuristic", tags={"method": "heuristic", "feature": "length"})
+def length_based(example):
+    """Longer texts tend to be more detailed/positive reviews."""
+    return 1 if len(example.text.split()) > 20 else 0
+
+@lf(name="exclamation_heuristic", tags={"method": "heuristic", "feature": "punctuation"})
+def exclamation_positive(example):
+    """Multiple exclamations often indicate strong positive sentiment."""
+    return 1 if example.text.count('!') >= 2 else 0
+
+@lf(name="caps_negative", tags={"method": "heuristic", "feature": "capitalization"})
+def caps_negative(example):
+    """Excessive caps often indicate negative sentiment."""
+    words = example.text.split()
+    caps_ratio = sum(1 for word in words if word.isupper() and len(word) > 2) / max(len(words), 1)
+    return 0 if caps_ratio > 0.3 else -1  # abstain if not clearly negative
+
+# Sample review data
+examples = [
+    Example("This product is absolutely amazing! Love it!!"),
+    Example("TERRIBLE QUALITY, WORST PURCHASE EVER"),
+    Example("The item arrived quickly and works as expected. Good packaging and clear instructions made setup easy."),
+    Example("Not bad, could be better"),
+    Example("Outstanding service and excellent quality! Highly recommend to everyone!")
+]
+
+# Apply all labeling functions
+lf_output = apply_lfs(examples)
+
+# Analyze LF agreement
+print("LF Agreement Analysis:")
+overlap = lf_output.overlap()
+conflict = lf_output.conflict()
+
+for i, lf1 in enumerate(lf_output.lf_names):
+    for j, lf2 in enumerate(lf_output.lf_names):
+        if i < j and overlap[i,j] > 0:
+            print(f"{lf1} vs {lf2}: overlap={overlap[i,j]:.3f}, conflict={conflict[i,j]:.3f}")
+
+# Train ensemble model
+model = LabelModel(cardinality=2, max_iter=100, verbose=True)
+model.fit(lf_output)
+
+# Show learned LF weights/accuracies
+stats = model.get_lf_stats()
+print("\nLearned LF Performance:")
+for lf_name in lf_output.lf_names:
+    accuracy_matrix = stats['lf_accuracies'][lf_name]['accuracy_matrix']
+    print(f"{lf_name}: {accuracy_matrix}")
+
+# Generate final predictions
+predictions = model.predict_proba(lf_output)
+hard_predictions = model.predict(lf_output)
+
+print("\nFinal Predictions:")
+for i, example in enumerate(examples):
+    confidence = max(predictions[i])
+    sentiment = "Positive" if hard_predictions[i] == 1 else "Negative"
+    print(f"Text: {example.text[:50]}...")
+    print(f"Prediction: {sentiment} (confidence: {confidence:.3f})")
+    print()</code></pre>
+                    <div class="mt-4 p-4 bg-yellow-50 rounded-lg">
+                        <p class="text-sm text-yellow-800">
+                            <strong>Use Case:</strong> Model ensembling, combining multiple AI services, hybrid human-AI systems
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Resources -->
+        <div class="mt-12 bg-white rounded-xl shadow-sm border p-8">
+            <h2 class="text-2xl font-bold mb-6">Additional Resources</h2>
+            
+            <div class="grid md:grid-cols-3 gap-6">
+                <div>
+                    <h3 class="font-semibold mb-3">Jupyter Notebooks</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><a href="notebooks/quickstart.ipynb" class="hover:text-blue-600">Quick Start Tutorial</a></li>
+                        <li><a href="notebooks/advanced-patterns.ipynb" class="hover:text-blue-600">Advanced LF Patterns</a></li>
+                        <li><a href="notebooks/evaluation.ipynb" class="hover:text-blue-600">Model Evaluation Guide</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-3">Domain Examples</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><a href="domains/finance.html" class="hover:text-blue-600">Financial Text Analysis</a></li>
+                        <li><a href="domains/legal.html" class="hover:text-blue-600">Legal Document Processing</a></li>
+                        <li><a href="domains/scientific.html" class="hover:text-blue-600">Scientific Literature</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-semibold mb-3">Integration Guides</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><a href="integrations/pytorch.html" class="hover:text-blue-600">PyTorch Integration</a></li>
+                        <li><a href="integrations/sklearn.html" class="hover:text-blue-600">scikit-learn Pipeline</a></li>
+                        <li><a href="integrations/mlflow.html" class="hover:text-blue-600">MLflow Tracking</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 class="font-semibold text-blue-900 mb-2">Contributing Examples</h4>
+                <p class="text-blue-800 text-sm">
+                    Have a great example or use case? We'd love to include it! 
+                    <a href="https://github.com/sonishsivarajkumar/LabelForge/blob/main/CONTRIBUTING.md" class="underline">
+                        Check our contributing guide
+                    </a> to learn how to submit your examples.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+</html>
