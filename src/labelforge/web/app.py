@@ -1,0 +1,1358 @@
+"""
+Main Streamlit application for LabelForge web interface.
+
+This module provides an interactive web interface for researchers to:
+- Upload and explore datasets
+- Create and test labeling functions interactively
+- Train label models and visualize results
+- Analyze labeling function performance and conflicts
+- Export results for downstream ML pipelines
+"""
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from typing import List, Dict, Any, Optional
+import json
+import io
+import sys
+import os
+
+try:
+    from labelforge import Example, LabelModel, apply_lfs, lf
+    from labelforge.lf import get_registered_lfs, clear_lf_registry
+    from labelforge.types import LFOutput
+except ImportError as e:
+    st.error(f"Failed to import LabelForge: {e}")
+    st.stop()
+
+
+def main():
+    """Main Streamlit application."""
+    st.set_page_config(
+        page_title="LabelForge - Interactive Weak Supervision",
+        page_icon="🏷️",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+    .main-header {
+        font-size: 3rem;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .section-header {
+        font-size: 1.5rem;
+        color: #333;
+        border-bottom: 2px solid #1f77b4;
+        padding-bottom: 0.5rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    .metric-card {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Main header
+    st.markdown('<h1 class="main-header">🏷️ LabelForge</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Interactive Weak Supervision and Data Labeling Framework</p>', unsafe_allow_html=True)
+    
+    # Initialize session state
+    if 'examples' not in st.session_state:
+        st.session_state.examples = []
+    if 'lf_functions' not in st.session_state:
+        st.session_state.lf_functions = []
+    if 'label_model' not in st.session_state:
+        st.session_state.label_model = None
+    if 'lf_output' not in st.session_state:
+        st.session_state.lf_output = None
+    
+    # Sidebar navigation
+    st.sidebar.title("Navigation")
+    page = st.sidebar.selectbox(
+        "Choose a page:",
+        ["📊 Overview", "📁 Data Upload", "⚙️ Labeling Functions", "🤖 Label Model", "📈 Analysis", "📋 Results"]
+    )
+    
+    if page == "📊 Overview":
+        show_overview()
+    elif page == "📁 Data Upload":
+        show_data_upload()
+    elif page == "⚙️ Labeling Functions":
+        show_labeling_functions()
+    elif page == "🤖 Label Model":
+        show_label_model()
+    elif page == "📈 Analysis":
+        show_analysis()
+    elif page == "📋 Results":
+        show_results()
+
+
+def show_overview():
+    """Display the overview page with project information and quick start."""
+    st.markdown('<div class="section-header">Welcome to LabelForge</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        ### 🎯 What is LabelForge?
+        
+        LabelForge is a research-oriented framework for **programmatic weak supervision** - 
+        a machine learning paradigm that enables you to create training labels using 
+        domain knowledge encoded as simple labeling functions.
+        
+        ### 🔬 Perfect for Research
+        - **Academic Studies**: Systematic evaluation of weak supervision techniques
+        - **Rapid Prototyping**: Quick experimentation with labeling strategies
+        - **Reproducible Research**: Clear documentation and standardized workflows
+        - **Community Driven**: Open-source with active researcher community
+        """)
+        
+    with col2:
+        st.markdown("""
+        ### 🚀 Quick Start Guide
+        
+        1. **📁 Upload Data**: Load your text examples or use sample datasets
+        2. **⚙️ Create Functions**: Write labeling functions that encode your domain knowledge
+        3. **🤖 Train Model**: Use the label model to combine multiple weak supervision signals
+        4. **📈 Analyze Results**: Visualize performance, conflicts, and coverage
+        5. **📋 Export**: Download probabilistic labels for your ML pipeline
+        """)
+    
+    # Show current state
+    st.markdown('<div class="section-header">Current Session Status</div>', unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>📊 Examples</h3>
+            <h2>{len(st.session_state.examples)}</h2>
+            <p>Data points loaded</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>⚙️ Functions</h3>
+            <h2>{len(get_registered_lfs())}</h2>
+            <p>Labeling functions</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        model_status = "✅ Trained" if st.session_state.label_model else "❌ Not trained"
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>🤖 Model</h3>
+            <h2>{model_status}</h2>
+            <p>Label model status</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        coverage = "N/A"
+        if st.session_state.lf_output is not None:
+            # Calculate coverage (examples with at least one non-abstaining vote)
+            abstain_count = np.sum(st.session_state.lf_output.votes == -1, axis=1)
+            covered = np.sum(abstain_count < st.session_state.lf_output.votes.shape[1])
+            coverage = f"{covered}/{len(st.session_state.examples)}"
+        
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>📈 Coverage</h3>
+            <h2>{coverage}</h2>
+            <p>Examples covered</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Sample workflow
+    if len(st.session_state.examples) == 0:
+        st.markdown('<div class="section-header">Try a Sample Workflow</div>', unsafe_allow_html=True)
+        
+        if st.button("🚀 Load Sample Medical Dataset", type="primary"):
+            # Load sample medical data
+            sample_data = [
+                "Patient diagnosed with type 2 diabetes mellitus",
+                "No signs of diabetic complications observed",
+                "Blood glucose levels significantly elevated",
+                "Regular checkup shows normal insulin sensitivity",
+                "Patient reports increased thirst and frequent urination",
+                "Diabetic retinopathy screening scheduled",
+                "HbA1c levels within normal range",
+                "Prescribed metformin for glucose control",
+                "Patient education on diabetic diet provided",
+                "No family history of diabetes reported"
+            ]
+            
+            st.session_state.examples = [Example(text=text) for text in sample_data]
+            st.success("✅ Loaded 10 sample medical examples!")
+            st.rerun()
+
+
+def show_data_upload():
+    """Handle data upload and management."""
+    st.markdown('<div class="section-header">Data Upload & Management</div>', unsafe_allow_html=True)
+    
+    tab1, tab2, tab3 = st.tabs(["📤 Upload", "👀 Preview", "🔧 Manage"])
+    
+    with tab1:
+        st.markdown("### Upload Your Dataset")
+        
+        # File upload
+        uploaded_file = st.file_uploader(
+            "Choose a file",
+            type=['csv', 'json', 'txt'],
+            help="Upload CSV (with 'text' column), JSON (list of texts), or TXT (one example per line)"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                    if 'text' not in df.columns:
+                        st.error("CSV file must contain a 'text' column")
+                    else:
+                        texts = df['text'].tolist()
+                        
+                elif uploaded_file.name.endswith('.json'):
+                    data = json.load(uploaded_file)
+                    if isinstance(data, list):
+                        texts = [str(item) for item in data]
+                    elif isinstance(data, dict) and 'text' in data:
+                        texts = data['text']
+                    else:
+                        st.error("JSON must be a list of texts or dict with 'text' key")
+                        texts = []
+                        
+                elif uploaded_file.name.endswith('.txt'):
+                    texts = uploaded_file.read().decode().strip().split('\n')
+                    texts = [t.strip() for t in texts if t.strip()]
+                
+                if texts:
+                    st.session_state.examples = [Example(text=text) for text in texts]
+                    st.success(f"✅ Successfully loaded {len(texts)} examples!")
+                    
+            except Exception as e:
+                st.error(f"Error loading file: {e}")
+        
+        # Manual input
+        st.markdown("### Manual Text Input")
+        manual_text = st.text_area(
+            "Enter text examples (one per line):",
+            height=200,
+            placeholder="Enter your text examples here...\nOne example per line"
+        )
+        
+        if st.button("Add Manual Examples"):
+            if manual_text.strip():
+                texts = [t.strip() for t in manual_text.strip().split('\n') if t.strip()]
+                new_examples = [Example(text=text) for text in texts]
+                st.session_state.examples.extend(new_examples)
+                st.success(f"✅ Added {len(new_examples)} examples!")
+                st.rerun()
+    
+    with tab2:
+        st.markdown("### Data Preview")
+        
+        if st.session_state.examples:
+            # Show basic statistics
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Examples", len(st.session_state.examples))
+            
+            with col2:
+                avg_length = np.mean([len(ex.text.split()) for ex in st.session_state.examples])
+                st.metric("Avg Words", f"{avg_length:.1f}")
+            
+            with col3:
+                total_chars = sum(len(ex.text) for ex in st.session_state.examples)
+                st.metric("Total Characters", f"{total_chars:,}")
+            
+            # Sample of examples
+            st.markdown("### Sample Examples")
+            sample_size = min(10, len(st.session_state.examples))
+            sample_df = pd.DataFrame([
+                {"ID": i, "Text": ex.text[:100] + "..." if len(ex.text) > 100 else ex.text}
+                for i, ex in enumerate(st.session_state.examples[:sample_size])
+            ])
+            st.dataframe(sample_df, use_container_width=True)
+            
+            # Text length distribution
+            if len(st.session_state.examples) > 1:
+                st.markdown("### Text Length Distribution")
+                lengths = [len(ex.text.split()) for ex in st.session_state.examples]
+                fig = px.histogram(
+                    x=lengths,
+                    nbins=20,
+                    title="Distribution of Text Lengths (Words)",
+                    labels={"x": "Number of Words", "y": "Count"}
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No data loaded yet. Upload data in the Upload tab.")
+    
+    with tab3:
+        st.markdown("### Data Management")
+        
+        if st.session_state.examples:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("🗑️ Clear All Data", type="secondary"):
+                    st.session_state.examples = []
+                    st.session_state.lf_output = None
+                    st.session_state.label_model = None
+                    st.success("✅ All data cleared!")
+                    st.rerun()
+            
+            with col2:
+                # Export current data
+                if st.button("💾 Export Data as JSON"):
+                    data = [ex.text for ex in st.session_state.examples]
+                    json_str = json.dumps(data, indent=2)
+                    st.download_button(
+                        label="📥 Download JSON",
+                        data=json_str,
+                        file_name="labelforge_data.json",
+                        mime="application/json"
+                    )
+        else:
+            st.info("No data to manage.")
+
+
+def show_labeling_functions():
+    """Handle labeling function creation and management."""
+    st.markdown('<div class="section-header">Labeling Functions</div>', unsafe_allow_html=True)
+    
+    if not st.session_state.examples:
+        st.warning("Please upload data first before creating labeling functions.")
+        return
+    
+    tab1, tab2, tab3 = st.tabs(["✏️ Create", "📋 Manage", "🧪 Test"])
+    
+    with tab1:
+        st.markdown("### Create New Labeling Function")
+        
+        # LF creation form
+        with st.form("lf_creation"):
+            lf_name = st.text_input("Function Name", placeholder="e.g., diabetes_keywords")
+            lf_description = st.text_area("Description", placeholder="What does this function detect?")
+            
+            st.markdown("**Function Type:**")
+            lf_type = st.selectbox(
+                "Choose function type:",
+                ["Keyword Match", "Regex Pattern", "Custom Code"]
+            )
+            
+            if lf_type == "Keyword Match":
+                keywords = st.text_input(
+                    "Keywords (comma-separated)",
+                    placeholder="diabetes, diabetic, glucose, insulin"
+                )
+                case_sensitive = st.checkbox("Case sensitive")
+                positive_label = st.selectbox("Label for matches:", [0, 1], index=1)
+                
+            elif lf_type == "Regex Pattern":
+                regex_pattern = st.text_input(
+                    "Regex Pattern",
+                    placeholder=r"\b(diabetes|diabetic)\b"
+                )
+                positive_label = st.selectbox("Label for matches:", [0, 1], index=1)
+                
+            elif lf_type == "Custom Code":
+                custom_code = st.text_area(
+                    "Python Code",
+                    height=200,
+                    placeholder="""def labeling_function(example):
+    # Your custom logic here
+    text = example.text.lower()
+    if 'diabetes' in text:
+        return 1
+    return 0  # or -1 to abstain
+"""
+                )
+            
+            submitted = st.form_submit_button("Create Labeling Function")
+            
+            if submitted and lf_name:
+                try:
+                    # Create the labeling function
+                    if lf_type == "Keyword Match":
+                        keyword_list = [k.strip() for k in keywords.split(',') if k.strip()]
+                        if not keyword_list:
+                            st.error("Please provide at least one keyword")
+                            return
+                        
+                        def create_keyword_lf(keywords, case_sensitive, positive_label):
+                            @lf(name=lf_name)
+                            def keyword_lf(example):
+                                text = example.text if case_sensitive else example.text.lower()
+                                search_keywords = keywords if case_sensitive else [k.lower() for k in keywords]
+                                return positive_label if any(k in text for k in search_keywords) else 0
+                            return keyword_lf
+                        
+                        func = create_keyword_lf(keyword_list, case_sensitive, positive_label)
+                        
+                    elif lf_type == "Regex Pattern":
+                        import re
+                        
+                        def create_regex_lf(pattern, positive_label):
+                            @lf(name=lf_name)
+                            def regex_lf(example):
+                                return positive_label if re.search(pattern, example.text) else 0
+                            return regex_lf
+                        
+                        func = create_regex_lf(regex_pattern, positive_label)
+                        
+                    elif lf_type == "Custom Code":
+                        # Execute custom code
+                        local_vars = {}
+                        exec(custom_code, {"lf": lf, "Example": Example}, local_vars)
+                        
+                        # Find the function in local_vars
+                        func_obj = None
+                        for key, value in local_vars.items():
+                            if callable(value) and hasattr(value, '__name__'):
+                                func_obj = value
+                                break
+                        
+                        if func_obj is None:
+                            st.error("Could not find a valid function in the custom code")
+                            return
+                        
+                        # Wrap with @lf decorator
+                        func = lf(name=lf_name)(func_obj)
+                    
+                    st.success(f"✅ Created labeling function '{lf_name}'!")
+                    
+                    # Test on a few examples
+                    test_results = []
+                    for i, example in enumerate(st.session_state.examples[:5]):
+                        try:
+                            result = func(example)
+                            test_results.append({"Example": i+1, "Text": example.text[:50] + "...", "Output": result})
+                        except Exception as e:
+                            test_results.append({"Example": i+1, "Text": example.text[:50] + "...", "Output": f"Error: {e}"})
+                    
+                    st.markdown("**Test Results (first 5 examples):**")
+                    st.dataframe(pd.DataFrame(test_results))
+                    
+                except Exception as e:
+                    st.error(f"Error creating labeling function: {e}")
+    
+    with tab2:
+        st.markdown("### Registered Labeling Functions")
+        
+        registered_lfs = get_registered_lfs()
+        
+        if registered_lfs:
+            for lf_func in registered_lfs:
+                with st.expander(f"🏷️ {lf_func.name}"):
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        # Show function details
+                        st.write(f"**Name:** {lf_func.name}")
+                        if hasattr(lf_func, '__doc__') and lf_func.__doc__:
+                            st.write(f"**Description:** {lf_func.__doc__}")
+                        
+                        # Test the function on first few examples
+                        if st.button(f"Test {lf_func.name}", key=f"test_{lf_func.name}"):
+                            test_results = []
+                            for i, example in enumerate(st.session_state.examples[:10]):
+                                try:
+                                    result = lf_func(example)
+                                    test_results.append({
+                                        "Example": i+1, 
+                                        "Text": example.text[:50] + "...", 
+                                        "Output": result
+                                    })
+                                except Exception as e:
+                                    test_results.append({
+                                        "Example": i+1, 
+                                        "Text": example.text[:50] + "...", 
+                                        "Output": f"Error: {e}"
+                                    })
+                            
+                            st.dataframe(pd.DataFrame(test_results))
+                    
+                    with col2:
+                        if st.button("❌ Remove", key=f"remove_{lf_func.name}"):
+                            # Note: We can't actually remove from registry in current implementation
+                            st.warning("Function removal not yet implemented. Restart app to clear registry.")
+            
+            if st.button("🗑️ Clear All Functions"):
+                clear_lf_registry()
+                st.success("✅ Cleared all labeling functions!")
+                st.rerun()
+                
+        else:
+            st.info("No labeling functions registered yet.")
+    
+    with tab3:
+        st.markdown("### Test All Functions")
+        
+        registered_lfs = get_registered_lfs()
+        
+        if registered_lfs and st.session_state.examples:
+            if st.button("🧪 Apply All Functions to Data"):
+                with st.spinner("Applying labeling functions..."):
+                    try:
+                        # Apply all LFs to all examples
+                        st.session_state.lf_output = apply_lfs(st.session_state.examples)
+                        
+                        st.success(f"✅ Applied {len(registered_lfs)} functions to {len(st.session_state.examples)} examples!")
+                        
+                        # Show summary statistics
+                        matrix = st.session_state.lf_output.votes
+                        
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            # Coverage per function
+                            coverage_stats = []
+                            for i, lf_func in enumerate(registered_lfs):
+                                non_abstain = np.sum(matrix[:, i] != -1)
+                                coverage = non_abstain / len(st.session_state.examples) * 100
+                                coverage_stats.append({"Function": lf_func.name, "Coverage %": f"{coverage:.1f}"})
+                            
+                            st.markdown("**Coverage by Function:**")
+                            st.dataframe(pd.DataFrame(coverage_stats))
+                        
+                        with col2:
+                            # Agreement statistics
+                            agreement_stats = []
+                            for i in range(len(registered_lfs)):
+                                for j in range(i+1, len(registered_lfs)):
+                                    # Only consider examples where both functions vote
+                                    mask = (matrix[:, i] != -1) & (matrix[:, j] != -1)
+                                    if np.sum(mask) > 0:
+                                        agreement = np.sum(matrix[mask, i] == matrix[mask, j]) / np.sum(mask) * 100
+                                        agreement_stats.append({
+                                            "Function Pair": f"{registered_lfs[i].name} vs {registered_lfs[j].name}",
+                                            "Agreement %": f"{agreement:.1f}"
+                                        })
+                            
+                            if agreement_stats:
+                                st.markdown("**Function Agreement:**")
+                                st.dataframe(pd.DataFrame(agreement_stats))
+                        
+                        with col3:
+                            # Overall statistics
+                            total_votes = np.sum(matrix != -1)
+                            positive_votes = np.sum(matrix == 1)
+                            negative_votes = np.sum(matrix == 0)
+                            abstentions = np.sum(matrix == -1)
+                            
+                            st.markdown("**Overall Statistics:**")
+                            st.metric("Total Votes", total_votes)
+                            st.metric("Positive Votes", positive_votes)
+                            st.metric("Negative Votes", negative_votes)
+                            st.metric("Abstentions", abstentions)
+                        
+                        # Show vote matrix heatmap
+                        st.markdown("### Vote Matrix Heatmap")
+                        
+                        # Create a subset for visualization if data is large
+                        display_matrix = matrix[:min(50, len(st.session_state.examples)), :]
+                        
+                        fig = px.imshow(
+                            display_matrix.T,
+                            labels=dict(x="Examples", y="Labeling Functions", color="Vote"),
+                            y=[lf.name for lf in registered_lfs],
+                            title=f"Labeling Function Votes (showing first {display_matrix.shape[0]} examples)",
+                            color_continuous_scale=["red", "gray", "green"],
+                            aspect="auto"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error applying labeling functions: {e}")
+        else:
+            if not registered_lfs:
+                st.info("No labeling functions to test.")
+            if not st.session_state.examples:
+                st.info("No data to test on.")
+
+
+def show_label_model():
+    """Handle label model training and configuration."""
+    st.markdown('<div class="section-header">Label Model Training</div>', unsafe_allow_html=True)
+    
+    if st.session_state.lf_output is None:
+        st.warning("Please apply labeling functions to your data first.")
+        return
+    
+    tab1, tab2 = st.tabs(["🏋️ Train Model", "⚙️ Model Configuration"])
+    
+    with tab1:
+        st.markdown("### Train Label Model")
+        
+        # Model configuration
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            cardinality = st.selectbox(
+                "Number of Classes",
+                [2, 3, 4, 5],
+                index=0,
+                help="Number of possible class labels (e.g., 2 for binary classification)"
+            )
+            
+            max_iter = st.slider(
+                "Maximum Iterations",
+                min_value=10,
+                max_value=500,
+                value=100,
+                help="Maximum number of EM algorithm iterations"
+            )
+        
+        with col2:
+            tolerance = st.selectbox(
+                "Convergence Tolerance",
+                [1e-3, 1e-4, 1e-5, 1e-6],
+                index=1,
+                format_func=lambda x: f"{x:.0e}",
+                help="Convergence threshold for EM algorithm"
+            )
+            
+            verbose = st.checkbox(
+                "Verbose Training",
+                value=True,
+                help="Show training progress and diagnostics"
+            )
+        
+        if st.button("🚀 Train Label Model", type="primary"):
+            with st.spinner("Training label model..."):
+                try:
+                    # Create and train the label model
+                    label_model = LabelModel(
+                        cardinality=cardinality,
+                        max_iter=max_iter,
+                        tol=tolerance,
+                        verbose=verbose
+                    )
+                    
+                    # Capture training output if verbose
+                    if verbose:
+                        from io import StringIO
+                        import contextlib
+                        
+                        output_buffer = StringIO()
+                        with contextlib.redirect_stdout(output_buffer):
+                            label_model.fit(st.session_state.lf_output)
+                        
+                        training_output = output_buffer.getvalue()
+                        if training_output:
+                            st.text("Training Progress:")
+                            st.code(training_output)
+                    else:
+                        label_model.fit(st.session_state.lf_output)
+                    
+                    st.session_state.label_model = label_model
+                    
+                    st.success("✅ Label model trained successfully!")
+                    
+                    # Show model statistics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Model Cardinality", cardinality)
+                    
+                    with col2:
+                        # Convergence information would need to be stored during training
+                        st.metric("Max Iterations", max_iter)
+                    
+                    with col3:
+                        st.metric("Tolerance", f"{tolerance:.0e}")
+                    
+                    # Generate predictions
+                    predictions = label_model.predict(st.session_state.lf_output)
+                    probabilities = label_model.predict_proba(st.session_state.lf_output)
+                    
+                    # Show prediction distribution
+                    st.markdown("### Prediction Distribution")
+                    pred_counts = pd.Series(predictions).value_counts().sort_index()
+                    
+                    fig = px.bar(
+                        x=pred_counts.index,
+                        y=pred_counts.values,
+                        title="Distribution of Predicted Labels",
+                        labels={"x": "Predicted Label", "y": "Count"}
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Show confidence distribution
+                    st.markdown("### Prediction Confidence")
+                    max_probs = np.max(probabilities, axis=1)
+                    
+                    fig = px.histogram(
+                        x=max_probs,
+                        nbins=20,
+                        title="Distribution of Prediction Confidence",
+                        labels={"x": "Max Probability", "y": "Count"}
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                except Exception as e:
+                    st.error(f"Error training label model: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+    
+    with tab2:
+        st.markdown("### Model Information")
+        
+        if st.session_state.label_model is not None:
+            model = st.session_state.label_model
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Model Parameters:**")
+                st.write(f"- Cardinality: {model.cardinality}")
+                st.write(f"- Maximum Iterations: {model.max_iter}")
+                st.write(f"- Tolerance: {model.tol}")
+                
+                if hasattr(model, 'n_iter_'):
+                    st.write(f"- Actual Iterations: {model.n_iter_}")
+            
+            with col2:
+                st.markdown("**Model Performance:**")
+                
+                # Calculate some basic statistics
+                predictions = model.predict(st.session_state.lf_output)
+                probabilities = model.predict_proba(st.session_state.lf_output)
+                
+                # Coverage (examples with confident predictions)
+                confident_threshold = 0.7
+                confident_predictions = np.sum(np.max(probabilities, axis=1) > confident_threshold)
+                coverage = confident_predictions / len(predictions) * 100
+                
+                st.write(f"- High Confidence Predictions: {confident_predictions}/{len(predictions)} ({coverage:.1f}%)")
+                st.write(f"- Average Confidence: {np.mean(np.max(probabilities, axis=1)):.3f}")
+                
+            # Export options
+            st.markdown("### Export Model Results")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("📥 Download Predictions (CSV)"):
+                    # Create predictions dataframe
+                    pred_df = pd.DataFrame({
+                        'text': [ex.text for ex in st.session_state.examples],
+                        'predicted_label': predictions,
+                        'confidence': np.max(probabilities, axis=1)
+                    })
+                    
+                    # Add probability columns
+                    for i in range(probabilities.shape[1]):
+                        pred_df[f'prob_class_{i}'] = probabilities[:, i]
+                    
+                    csv = pred_df.to_csv(index=False)
+                    st.download_button(
+                        label="💾 Download CSV",
+                        data=csv,
+                        file_name="labelforge_predictions.csv",
+                        mime="text/csv"
+                    )
+            
+            with col2:
+                if st.button("📥 Download Probabilities (JSON)"):
+                    results = {
+                        'predictions': predictions.tolist(),
+                        'probabilities': probabilities.tolist(),
+                        'examples': [ex.text for ex in st.session_state.examples],
+                        'model_config': {
+                            'cardinality': model.cardinality,
+                            'max_iter': model.max_iter,
+                            'tol': model.tol
+                        }
+                    }
+                    
+                    json_str = json.dumps(results, indent=2)
+                    st.download_button(
+                        label="💾 Download JSON",
+                        data=json_str,
+                        file_name="labelforge_results.json",
+                        mime="application/json"
+                    )
+        else:
+            st.info("No trained model available. Train a model first.")
+
+
+def show_analysis():
+    """Show analysis and visualization of results."""
+    st.markdown('<div class="section-header">Analysis & Visualization</div>', unsafe_allow_html=True)
+    
+    if st.session_state.lf_output is None:
+        st.warning("Please apply labeling functions to your data first.")
+        return
+    
+    tab1, tab2, tab3 = st.tabs(["📊 LF Performance", "🔍 Conflicts", "📈 Model Analysis"])
+    
+    with tab1:
+        st.markdown("### Labeling Function Performance")
+        
+        registered_lfs = get_registered_lfs()
+        matrix = st.session_state.lf_output.votes
+        
+        # Coverage analysis
+        coverage_data = []
+        for i, lf_func in enumerate(registered_lfs):
+            non_abstain = np.sum(matrix[:, i] != -1)
+            positive_votes = np.sum(matrix[:, i] == 1)
+            negative_votes = np.sum(matrix[:, i] == 0)
+            
+            coverage_data.append({
+                'Function': lf_func.name,
+                'Coverage': non_abstain / len(st.session_state.examples),
+                'Coverage %': f"{non_abstain / len(st.session_state.examples) * 100:.1f}%",
+                'Positive Votes': positive_votes,
+                'Negative Votes': negative_votes,
+                'Abstentions': len(st.session_state.examples) - non_abstain
+            })
+        
+        coverage_df = pd.DataFrame(coverage_data)
+        
+        # Coverage chart
+        fig = px.bar(
+            coverage_df,
+            x='Function',
+            y='Coverage',
+            title="Labeling Function Coverage",
+            labels={'Coverage': 'Coverage Rate', 'Function': 'Labeling Function'}
+        )
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Detailed statistics table
+        st.markdown("### Detailed Statistics")
+        st.dataframe(coverage_df, use_container_width=True)
+        
+        # Vote distribution
+        st.markdown("### Vote Distribution")
+        
+        vote_data = []
+        for i, lf_func in enumerate(registered_lfs):
+            vote_data.extend([
+                {'Function': lf_func.name, 'Vote Type': 'Positive', 'Count': np.sum(matrix[:, i] == 1)},
+                {'Function': lf_func.name, 'Vote Type': 'Negative', 'Count': np.sum(matrix[:, i] == 0)},
+                {'Function': lf_func.name, 'Vote Type': 'Abstain', 'Count': np.sum(matrix[:, i] == -1)}
+            ])
+        
+        vote_df = pd.DataFrame(vote_data)
+        
+        fig = px.bar(
+            vote_df,
+            x='Function',
+            y='Count',
+            color='Vote Type',
+            title="Vote Distribution by Function",
+            color_discrete_map={'Positive': 'green', 'Negative': 'red', 'Abstain': 'gray'}
+        )
+        fig.update_layout(xaxis_tickangle=-45)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        st.markdown("### Conflict Analysis")
+        
+        registered_lfs = get_registered_lfs()
+        matrix = st.session_state.lf_output.votes
+        
+        if len(registered_lfs) < 2:
+            st.info("Need at least 2 labeling functions to analyze conflicts.")
+            return
+        
+        # Pairwise agreement analysis
+        agreement_data = []
+        conflict_examples = {}
+        
+        for i in range(len(registered_lfs)):
+            for j in range(i + 1, len(registered_lfs)):
+                # Find examples where both functions vote (non-abstain)
+                mask = (matrix[:, i] != -1) & (matrix[:, j] != -1)
+                
+                if np.sum(mask) > 0:
+                    agreements = matrix[mask, i] == matrix[mask, j]
+                    agreement_rate = np.mean(agreements)
+                    
+                    agreement_data.append({
+                        'Function 1': registered_lfs[i].name,
+                        'Function 2': registered_lfs[j].name,
+                        'Agreement Rate': agreement_rate,
+                        'Agreement %': f"{agreement_rate * 100:.1f}%",
+                        'Overlapping Examples': np.sum(mask),
+                        'Conflicts': np.sum(~agreements)
+                    })
+                    
+                    # Store conflict examples
+                    if np.sum(~agreements) > 0:
+                        conflict_indices = np.where(mask)[0][~agreements]
+                        conflict_examples[f"{registered_lfs[i].name} vs {registered_lfs[j].name}"] = [
+                            {
+                                'text': st.session_state.examples[idx].text,
+                                'vote_1': int(matrix[idx, i]),
+                                'vote_2': int(matrix[idx, j])
+                            }
+                            for idx in conflict_indices[:5]  # Show first 5 conflicts
+                        ]
+        
+        if agreement_data:
+            agreement_df = pd.DataFrame(agreement_data)
+            
+            # Agreement heatmap
+            st.markdown("### Pairwise Agreement Rates")
+            st.dataframe(agreement_df, use_container_width=True)
+            
+            # Agreement rate visualization
+            fig = px.bar(
+                agreement_df,
+                x='Agreement Rate',
+                y=[f"{row['Function 1']} vs {row['Function 2']}" for _, row in agreement_df.iterrows()],
+                orientation='h',
+                title="Pairwise Agreement Rates",
+                labels={'Agreement Rate': 'Agreement Rate', 'y': 'Function Pairs'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Show conflict examples
+            if conflict_examples:
+                st.markdown("### Example Conflicts")
+                
+                for pair, examples in conflict_examples.items():
+                    with st.expander(f"Conflicts: {pair}"):
+                        for i, example in enumerate(examples):
+                            st.write(f"**Example {i+1}:**")
+                            st.write(f"Text: {example['text'][:200]}...")
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.write(f"Vote 1: {example['vote_1']}")
+                            with col2:
+                                st.write(f"Vote 2: {example['vote_2']}")
+                            st.divider()
+        
+        # Overall conflict statistics
+        st.markdown("### Overall Conflict Statistics")
+        
+        # Calculate examples with conflicts
+        examples_with_votes = np.sum(matrix != -1, axis=1) > 1  # Examples with multiple votes
+        conflict_mask = examples_with_votes
+        
+        if np.sum(conflict_mask) > 0:
+            # For each example with multiple votes, check if there are conflicts
+            conflict_count = 0
+            for idx in np.where(examples_with_votes)[0]:
+                votes = matrix[idx, matrix[idx] != -1]
+                if len(np.unique(votes)) > 1:
+                    conflict_count += 1
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Examples with Multiple Votes", np.sum(examples_with_votes))
+            
+            with col2:
+                st.metric("Examples with Conflicts", conflict_count)
+            
+            with col3:
+                conflict_rate = conflict_count / np.sum(examples_with_votes) * 100 if np.sum(examples_with_votes) > 0 else 0
+                st.metric("Conflict Rate", f"{conflict_rate:.1f}%")
+    
+    with tab3:
+        st.markdown("### Model Analysis")
+        
+        if st.session_state.label_model is None:
+            st.info("Train a label model first to see model analysis.")
+            return
+        
+        model = st.session_state.label_model
+        predictions = model.predict(st.session_state.lf_output)
+        probabilities = model.predict_proba(st.session_state.lf_output)
+        
+        # Confidence analysis
+        max_probs = np.max(probabilities, axis=1)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Confidence distribution
+            fig = px.histogram(
+                x=max_probs,
+                nbins=20,
+                title="Prediction Confidence Distribution",
+                labels={"x": "Max Probability", "y": "Count"}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Prediction distribution
+            pred_counts = pd.Series(predictions).value_counts().sort_index()
+            fig = px.pie(
+                values=pred_counts.values,
+                names=pred_counts.index,
+                title="Predicted Label Distribution"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # High and low confidence examples
+        st.markdown("### Confidence Analysis")
+        
+        # Sort by confidence
+        confidence_order = np.argsort(max_probs)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Highest Confidence Predictions:**")
+            high_conf_indices = confidence_order[-5:][::-1]  # Top 5, descending
+            
+            for idx in high_conf_indices:
+                with st.expander(f"Confidence: {max_probs[idx]:.3f} | Label: {predictions[idx]}"):
+                    st.write(st.session_state.examples[idx].text)
+                    
+                    # Show probability distribution
+                    prob_data = {f"Class {i}": probabilities[idx, i] for i in range(probabilities.shape[1])}
+                    st.bar_chart(prob_data)
+        
+        with col2:
+            st.markdown("**Lowest Confidence Predictions:**")
+            low_conf_indices = confidence_order[:5]  # Bottom 5
+            
+            for idx in low_conf_indices:
+                with st.expander(f"Confidence: {max_probs[idx]:.3f} | Label: {predictions[idx]}"):
+                    st.write(st.session_state.examples[idx].text)
+                    
+                    # Show probability distribution
+                    prob_data = {f"Class {i}": probabilities[idx, i] for i in range(probabilities.shape[1])}
+                    st.bar_chart(prob_data)
+        
+        # Model accuracy estimation (if we had ground truth, we'd calculate actual accuracy)
+        st.markdown("### Model Quality Indicators")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            avg_confidence = np.mean(max_probs)
+            st.metric("Average Confidence", f"{avg_confidence:.3f}")
+        
+        with col2:
+            high_confidence_threshold = 0.8
+            high_conf_count = np.sum(max_probs > high_confidence_threshold)
+            st.metric(f"High Confidence (>{high_confidence_threshold})", f"{high_conf_count}/{len(predictions)}")
+        
+        with col3:
+            low_confidence_threshold = 0.6
+            low_conf_count = np.sum(max_probs < low_confidence_threshold)
+            st.metric(f"Low Confidence (<{low_confidence_threshold})", f"{low_conf_count}/{len(predictions)}")
+        
+        with col4:
+            # Entropy as uncertainty measure
+            entropy = -np.sum(probabilities * np.log(probabilities + 1e-8), axis=1)
+            avg_entropy = np.mean(entropy)
+            st.metric("Average Uncertainty", f"{avg_entropy:.3f}")
+
+
+def show_results():
+    """Show final results and export options."""
+    st.markdown('<div class="section-header">Results & Export</div>', unsafe_allow_html=True)
+    
+    if st.session_state.label_model is None:
+        st.warning("Train a label model first to see results.")
+        return
+    
+    model = st.session_state.label_model
+    predictions = model.predict(st.session_state.lf_output)
+    probabilities = model.predict_proba(st.session_state.lf_output)
+    
+    tab1, tab2, tab3 = st.tabs(["📋 Summary", "🔍 Browse Results", "💾 Export"])
+    
+    with tab1:
+        st.markdown("### Experiment Summary")
+        
+        # Overall statistics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Examples", len(st.session_state.examples))
+        
+        with col2:
+            st.metric("Labeling Functions", len(get_registered_lfs()))
+        
+        with col3:
+            st.metric("Model Classes", model.cardinality)
+        
+        with col4:
+            avg_confidence = np.mean(np.max(probabilities, axis=1))
+            st.metric("Avg Confidence", f"{avg_confidence:.3f}")
+        
+        # Label distribution
+        st.markdown("### Final Label Distribution")
+        
+        pred_counts = pd.Series(predictions).value_counts().sort_index()
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig = px.bar(
+                x=pred_counts.index,
+                y=pred_counts.values,
+                title="Predicted Label Counts",
+                labels={"x": "Label", "y": "Count"}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            fig = px.pie(
+                values=pred_counts.values,
+                names=[f"Class {i}" for i in pred_counts.index],
+                title="Label Distribution"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Quality indicators
+        st.markdown("### Quality Indicators")
+        
+        max_probs = np.max(probabilities, axis=1)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            high_conf = np.sum(max_probs > 0.8)
+            st.metric("High Confidence (>0.8)", f"{high_conf} ({high_conf/len(predictions)*100:.1f}%)")
+        
+        with col2:
+            medium_conf = np.sum((max_probs > 0.6) & (max_probs <= 0.8))
+            st.metric("Medium Confidence (0.6-0.8)", f"{medium_conf} ({medium_conf/len(predictions)*100:.1f}%)")
+        
+        with col3:
+            low_conf = np.sum(max_probs <= 0.6)
+            st.metric("Low Confidence (≤0.6)", f"{low_conf} ({low_conf/len(predictions)*100:.1f}%)")
+    
+    with tab2:
+        st.markdown("### Browse Predictions")
+        
+        # Filter options
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            label_filter = st.selectbox(
+                "Filter by predicted label:",
+                ["All"] + [f"Class {i}" for i in range(model.cardinality)]
+            )
+        
+        with col2:
+            confidence_filter = st.selectbox(
+                "Filter by confidence:",
+                ["All", "High (>0.8)", "Medium (0.6-0.8)", "Low (≤0.6)"]
+            )
+        
+        with col3:
+            sort_by = st.selectbox(
+                "Sort by:",
+                ["Index", "Confidence (High to Low)", "Confidence (Low to High)"]
+            )
+        
+        # Apply filters
+        indices = np.arange(len(predictions))
+        max_probs = np.max(probabilities, axis=1)
+        
+        # Label filter
+        if label_filter != "All":
+            label_num = int(label_filter.split()[-1])
+            indices = indices[predictions == label_num]
+        
+        # Confidence filter
+        if confidence_filter == "High (>0.8)":
+            mask = max_probs > 0.8
+            indices = indices[mask[indices]]
+        elif confidence_filter == "Medium (0.6-0.8)":
+            mask = (max_probs > 0.6) & (max_probs <= 0.8)
+            indices = indices[mask[indices]]
+        elif confidence_filter == "Low (≤0.6)":
+            mask = max_probs <= 0.6
+            indices = indices[mask[indices]]
+        
+        # Sort
+        if sort_by == "Confidence (High to Low)":
+            indices = indices[np.argsort(max_probs[indices])[::-1]]
+        elif sort_by == "Confidence (Low to High)":
+            indices = indices[np.argsort(max_probs[indices])]
+        
+        st.write(f"Showing {len(indices)} examples")
+        
+        # Pagination
+        items_per_page = 10
+        total_pages = (len(indices) + items_per_page - 1) // items_per_page
+        
+        if total_pages > 1:
+            page = st.selectbox(f"Page (1-{total_pages}):", range(1, total_pages + 1))
+            start_idx = (page - 1) * items_per_page
+            end_idx = min(start_idx + items_per_page, len(indices))
+            page_indices = indices[start_idx:end_idx]
+        else:
+            page_indices = indices[:items_per_page]
+        
+        # Display examples
+        for i, idx in enumerate(page_indices):
+            with st.expander(f"Example {idx + 1} | Predicted: Class {predictions[idx]} | Confidence: {max_probs[idx]:.3f}"):
+                st.write("**Text:**")
+                st.write(st.session_state.examples[idx].text)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Prediction Details:**")
+                    st.write(f"- Predicted Label: Class {predictions[idx]}")
+                    st.write(f"- Confidence: {max_probs[idx]:.3f}")
+                
+                with col2:
+                    st.write("**Probability Distribution:**")
+                    prob_data = {f"Class {i}": probabilities[idx, i] for i in range(model.cardinality)}
+                    st.bar_chart(prob_data)
+                
+                # Show LF votes for this example
+                st.write("**Labeling Function Votes:**")
+                lf_votes = []
+                for lf_idx, lf_func in enumerate(get_registered_lfs()):
+                    vote = st.session_state.lf_output.votes[idx, lf_idx]
+                    vote_str = "Abstain" if vote == -1 else f"Class {vote}"
+                    lf_votes.append({"Function": lf_func.name, "Vote": vote_str})
+                
+                if lf_votes:
+                    st.dataframe(pd.DataFrame(lf_votes), use_container_width=True)
+    
+    with tab3:
+        st.markdown("### Export Results")
+        
+        # Export options
+        export_format = st.selectbox(
+            "Choose export format:",
+            ["CSV", "JSON", "Python Pickle"]
+        )
+        
+        include_options = st.multiselect(
+            "Include in export:",
+            ["Text", "Predictions", "Probabilities", "LF Votes", "Confidence Scores"],
+            default=["Text", "Predictions", "Probabilities"]
+        )
+        
+        if st.button("📥 Generate Export File", type="primary"):
+            try:
+                export_data = {}
+                
+                if "Text" in include_options:
+                    export_data['text'] = [ex.text for ex in st.session_state.examples]
+                
+                if "Predictions" in include_options:
+                    export_data['predicted_labels'] = predictions.tolist()
+                
+                if "Probabilities" in include_options:
+                    for i in range(model.cardinality):
+                        export_data[f'prob_class_{i}'] = probabilities[:, i].tolist()
+                
+                if "Confidence Scores" in include_options:
+                    export_data['confidence'] = np.max(probabilities, axis=1).tolist()
+                
+                if "LF Votes" in include_options:
+                    lf_names = [lf.name for lf in get_registered_lfs()]
+                    for i, name in enumerate(lf_names):
+                        export_data[f'lf_{name}'] = st.session_state.lf_output.votes[:, i].tolist()
+                
+                # Metadata
+                export_data['metadata'] = {
+                    'num_examples': len(st.session_state.examples),
+                    'num_labeling_functions': len(get_registered_lfs()),
+                    'model_cardinality': model.cardinality,
+                    'labeling_function_names': [lf.name for lf in get_registered_lfs()],
+                    'export_timestamp': pd.Timestamp.now().isoformat()
+                }
+                
+                if export_format == "CSV":
+                    # Convert to DataFrame for CSV
+                    df_data = {}
+                    for key, value in export_data.items():
+                        if key != 'metadata' and isinstance(value, list):
+                            df_data[key] = value
+                    
+                    df = pd.DataFrame(df_data)
+                    csv_string = df.to_csv(index=False)
+                    
+                    st.download_button(
+                        label="💾 Download CSV",
+                        data=csv_string,
+                        file_name=f"labelforge_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+                
+                elif export_format == "JSON":
+                    json_string = json.dumps(export_data, indent=2)
+                    
+                    st.download_button(
+                        label="💾 Download JSON",
+                        data=json_string,
+                        file_name=f"labelforge_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json"
+                    )
+                
+                elif export_format == "Python Pickle":
+                    import pickle
+                    
+                    # Include the actual objects for pickle
+                    pickle_data = {
+                        'examples': st.session_state.examples,
+                        'lf_output': st.session_state.lf_output,
+                        'label_model': st.session_state.label_model,
+                        'predictions': predictions,
+                        'probabilities': probabilities,
+                        'metadata': export_data['metadata']
+                    }
+                    
+                    pickle_bytes = pickle.dumps(pickle_data)
+                    
+                    st.download_button(
+                        label="💾 Download Pickle",
+                        data=pickle_bytes,
+                        file_name=f"labelforge_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.pkl",
+                        mime="application/octet-stream"
+                    )
+                
+                st.success("✅ Export file generated successfully!")
+                
+            except Exception as e:
+                st.error(f"Error generating export: {e}")
+        
+        # Quick stats for export
+        st.markdown("### Export Preview")
+        
+        preview_data = {
+            "Metric": ["Total Examples", "Predictions", "Probabilities Shape", "LF Matrix Shape"],
+            "Value": [
+                len(st.session_state.examples),
+                len(predictions),
+                f"{probabilities.shape[0]} x {probabilities.shape[1]}",
+                f"{st.session_state.lf_output.votes.shape[0]} x {st.session_state.lf_output.votes.shape[1]}"
+            ]
+        }
+        
+        st.dataframe(pd.DataFrame(preview_data), use_container_width=True)
+
+
+if __name__ == "__main__":
+    main()

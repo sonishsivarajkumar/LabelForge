@@ -3,8 +3,8 @@
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PyPI](https://img.shields.io/badge/PyPI-0.1.0-green.svg)](https://pypi.org/project/labelforge/)
-[![Tests](https://github.com/sonishsivarajkumar/LabelForge/workflows/CI/badge.svg)](https://github.com/sonishsivarajkumar/LabelForge/actions)
-[![Documentation](https://img.shields.io/badge/docs-github.io-brightgreen.svg)](https://sonishsivarajkumar.github.io/LabelForge/)
+[![Tests](https://img.shields.io/badge/tests-passing-green.svg)](tests/)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](docs/)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 **Open-source framework for programmatic weak supervision and data labeling**
@@ -16,7 +16,6 @@ LabelForge is a research-oriented Python library for creating labeled datasets u
 - [Overview](#overview)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Core Concepts](#core-concepts)
 - [API Reference](#api-reference)
 - [Examples](#examples)
 - [Research & Citations](#research--citations)
@@ -53,7 +52,14 @@ LabelForge requires Python 3.8+ and can be installed from PyPI or source.
 ### From PyPI (Recommended)
 
 ```bash
+# Basic installation
 pip install labelforge
+
+# With web interface (recommended)
+pip install labelforge[web]
+
+# Full installation with all features
+pip install labelforge[all]
 ```
 
 ### From Source (For Development)
@@ -78,10 +84,62 @@ pre-commit install  # Optional: install git hooks
 ### Dependencies
 
 - **Core**: numpy, pandas, scipy, scikit-learn
-- **CLI**: click
+- **CLI**: click, rich
+- **Web Interface**: streamlit, plotly, altair
 - **Dev**: pytest, black, flake8, mypy, pre-commit
 
+### Web Dependencies
+
+For the interactive web interface:
+
+```bash
+pip install labelforge[web]
+# or
+pip install streamlit plotly altair streamlit-aggrid
+```
+
+## 🌐 Web Interface (NEW!)
+
+LabelForge now includes a modern, interactive web interface perfect for researchers and practitioners who prefer visual tools:
+
+```bash
+# Launch the web interface
+./start_web.sh
+# or
+streamlit run src/labelforge/web/app.py
+```
+
+**Access at:** http://localhost:8501
+
+### Web Interface Features:
+- 📁 **Drag-and-drop data upload** (CSV, JSON, text files)
+- ⚙️ **Visual labeling function creation** (keyword, regex, custom code)
+- 🤖 **Interactive model training** with real-time feedback
+- 📈 **Performance visualization** and conflict analysis
+- 📋 **Results browsing** with filtering and export options
+- 🔬 **Research-focused design** for systematic experimentation
+
 ## Quick Start
+
+### Option 1: Web Interface (Recommended for Beginners)
+
+```bash
+# Install with web dependencies
+pip install labelforge[web]
+
+# Launch the interactive interface
+./start_web.sh
+
+# Open http://localhost:8501 in your browser
+```
+
+The web interface provides a complete guided experience:
+1. Upload your data or use sample datasets
+2. Create labeling functions visually
+3. Train models with real-time feedback
+4. Analyze results and export predictions
+
+### Option 2: Python API
 
 Here's a minimal example showing the core workflow:
 
@@ -124,7 +182,24 @@ print(f"Predictions: {predictions}")
 print(f"Probabilities shape: {probs.shape}")
 ```
 
-For more examples, see the [examples/](examples/) directory and [documentation](https://sonishsivarajkumar.github.io/LabelForge/).
+For more examples, see the [examples/](examples/) directory and [documentation](docs/).
+
+## 🎥 Quick Demo
+
+Try the web interface with sample data:
+
+```bash
+# Install and launch
+pip install labelforge[web]
+./start_web.sh
+
+# In the web interface:
+# 1. Go to Overview → Click "🚀 Load Sample Medical Dataset"
+# 2. Navigate to "⚙️ Labeling Functions" → Create keyword-based functions
+# 3. Go to "🤖 Label Model" → Train with default settings
+# 4. Explore "📈 Analysis" → View performance and conflicts
+# 5. Check "📋 Results" → Browse predictions and export
+```
 
 ## API Reference
 
@@ -175,6 +250,27 @@ labelforge lf-test --dataset examples/data.json
 # Run end-to-end pipeline
 labelforge run --input data/ --output results/
 ```
+
+### 🌐 Web Interface
+
+LabelForge now includes a modern, interactive web interface built with Streamlit, designed specifically for researchers and practitioners who prefer visual tools.
+
+```bash
+# Launch the web interface
+labelforge web
+
+# Or use the direct command
+streamlit run src/labelforge/web/app.py
+```
+
+**Key Features:**
+- **Interactive Data Upload**: Drag-and-drop CSV, JSON, and text files
+- **Visual LF Creation**: Build labeling functions with guided forms
+- **Real-time Analysis**: Live performance metrics and conflict visualization
+- **Export Results**: Download predictions in multiple formats
+- **Research-Focused**: Designed for academic experimentation and systematic studies
+
+Access the interface at `http://localhost:8501` after launching.
 
 ## Research & Citations
 
@@ -304,29 +400,21 @@ The label model implements a generative approach:
 | 100K examples| 20 LFs    | ~30s          | ~200MB       |
 
 Performance scales linearly with dataset size and number of functions.
-```
-
-**Professional Support**
-- 24/7 technical support
-- Custom feature development
-- On-site training and consultation
-- SLA guarantees for uptime and performance
-
-
 
 ---
 
 ## Roadmap
 
-### Current Status (v0.1.0)
+### Current Status (v0.1.0) ✅
 - ✅ Core labeling function framework
 - ✅ Probabilistic label model with EM algorithm  
 - ✅ Command-line interface
 - ✅ Basic analytics and visualization
 - ✅ Example datasets and documentation
+- ✅ **Web-based user interface with interactive features**
 
-### Version 1.0 (Target: Q3 2025)
-- 🚧 Web-based user interface
+### Version 1.0 (Target: Q3 2025) 🚧
+- ✅ Web-based user interface
 - 🚧 Advanced model diagnostics
 - 🚧 Integration with popular ML frameworks
 - 🚧 Comprehensive documentation and tutorials
@@ -352,8 +440,6 @@ Performance scales linearly with dataset size and number of functions.
 - 📋 Cloud deployment and scaling
 
 ---
-
-## Contributing
 
 ## Contributing
 
@@ -405,7 +491,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Getting Help
 
-- **📖 Documentation**: Visit our [GitHub Pages site](https://sonishsivarajkumar.github.io/LabelForge/)
+- **📖 Documentation**: Browse the [docs/](docs/) directory
 - **🐛 Issues**: [Report bugs](https://github.com/sonishsivarajkumar/LabelForge/issues) and request features
 - **💬 Discussions**: Share use cases and ask questions
 - **📧 Contact**: Reach out for research collaborations

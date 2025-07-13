@@ -275,5 +275,49 @@ def lf_stats(output_format: str) -> None:
             click.echo(f"{name:<20} {coverage:<10} {error_rate:<12} {calls:<8} {tags}")
 
 
+@main.command()
+@click.option("--port", "-p", default=8501, help="Port to run the web interface on")
+@click.option("--host", "-h", default="localhost", help="Host to run the web interface on")
+def web(port: int, host: str) -> None:
+    """Launch the interactive web interface."""
+    try:
+        import streamlit.web.cli as stcli
+        import sys
+        from pathlib import Path
+        
+        # Get the path to the web app
+        web_app_path = Path(__file__).parent / "web" / "app.py"
+        
+        if not web_app_path.exists():
+            click.echo("❌ Web interface not found. Make sure LabelForge is properly installed.")
+            sys.exit(1)
+        
+        click.echo(f"🚀 Starting LabelForge web interface on {host}:{port}")
+        click.echo(f"📂 App location: {web_app_path}")
+        click.echo("💡 Press Ctrl+C to stop the server")
+        
+        # Set up streamlit arguments
+        sys.argv = [
+            "streamlit",
+            "run",
+            str(web_app_path),
+            "--server.port", str(port),
+            "--server.address", host,
+            "--server.headless", "true",
+            "--browser.gatherUsageStats", "false"
+        ]
+        
+        # Run streamlit
+        stcli.main()
+        
+    except ImportError:
+        click.echo("❌ Streamlit not installed. Install web dependencies:")
+        click.echo("   pip install labelforge[web]")
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Error starting web interface: {e}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     main()

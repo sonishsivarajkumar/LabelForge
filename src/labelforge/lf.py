@@ -180,6 +180,11 @@ def get_lf_summary() -> Dict[str, Any]:
     return summary
 
 
+def get_registered_lfs() -> List[LabelingFunction]:
+    """Get all registered labeling functions."""
+    return list(LF_REGISTRY.values())
+
+
 def clear_lf_registry() -> None:
     """Clear all registered labeling functions."""
     LF_REGISTRY.clear()
