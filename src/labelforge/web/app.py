@@ -33,7 +33,7 @@ def main():
     """Main Streamlit application."""
     st.set_page_config(
         page_title="LabelForge - Interactive Weak Supervision",
-        page_icon="🏷️",
+        page_icon="📊",
         layout="wide",
         initial_sidebar_state="expanded"
     )
@@ -65,7 +65,7 @@ def main():
     """, unsafe_allow_html=True)
     
     # Main header
-    st.markdown('<h1 class="main-header">🏷️ LabelForge</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">LabelForge</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Interactive Weak Supervision and Data Labeling Framework</p>', unsafe_allow_html=True)
     
     # Initialize session state
@@ -82,20 +82,20 @@ def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["📊 Overview", "📁 Data Upload", "⚙️ Labeling Functions", "🤖 Label Model", "📈 Analysis", "📋 Results"]
+        ["Overview", "Data Upload", "Labeling Functions", "Label Model", "Analysis", "Results"]
     )
     
-    if page == "📊 Overview":
+    if page == "Overview":
         show_overview()
-    elif page == "📁 Data Upload":
+    elif page == "Data Upload":
         show_data_upload()
-    elif page == "⚙️ Labeling Functions":
+    elif page == "Labeling Functions":
         show_labeling_functions()
-    elif page == "🤖 Label Model":
+    elif page == "Label Model":
         show_label_model()
-    elif page == "📈 Analysis":
+    elif page == "Analysis":
         show_analysis()
-    elif page == "📋 Results":
+    elif page == "Results":
         show_results()
 
 
@@ -107,13 +107,13 @@ def show_overview():
     
     with col1:
         st.markdown("""
-        ### 🎯 What is LabelForge?
+        ### What is LabelForge?
         
         LabelForge is a research-oriented framework for **programmatic weak supervision** - 
         a machine learning paradigm that enables you to create training labels using 
         domain knowledge encoded as simple labeling functions.
         
-        ### 🔬 Perfect for Research
+        ### Perfect for Research
         - **Academic Studies**: Systematic evaluation of weak supervision techniques
         - **Rapid Prototyping**: Quick experimentation with labeling strategies
         - **Reproducible Research**: Clear documentation and standardized workflows
@@ -122,13 +122,13 @@ def show_overview():
         
     with col2:
         st.markdown("""
-        ### 🚀 Quick Start Guide
+        ### Quick Start Guide
         
-        1. **📁 Upload Data**: Load your text examples or use sample datasets
-        2. **⚙️ Create Functions**: Write labeling functions that encode your domain knowledge
-        3. **🤖 Train Model**: Use the label model to combine multiple weak supervision signals
-        4. **📈 Analyze Results**: Visualize performance, conflicts, and coverage
-        5. **📋 Export**: Download probabilistic labels for your ML pipeline
+        1. **Upload Data**: Load your text examples or use sample datasets
+        2. **Create Functions**: Write labeling functions that encode your domain knowledge
+        3. **Train Model**: Use the label model to combine multiple weak supervision signals
+        4. **Analyze Results**: Visualize performance, conflicts, and coverage
+        5. **Export**: Download probabilistic labels for your ML pipeline
         """)
     
     # Show current state
@@ -139,7 +139,7 @@ def show_overview():
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <h3>📊 Examples</h3>
+            <h3>Examples</h3>
             <h2>{len(st.session_state.examples)}</h2>
             <p>Data points loaded</p>
         </div>
@@ -148,17 +148,17 @@ def show_overview():
     with col2:
         st.markdown(f"""
         <div class="metric-card">
-            <h3>⚙️ Functions</h3>
+            <h3>Functions</h3>
             <h2>{len(get_registered_lfs())}</h2>
             <p>Labeling functions</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        model_status = "✅ Trained" if st.session_state.label_model else "❌ Not trained"
+        model_status = "Trained" if st.session_state.label_model else "Not trained"
         st.markdown(f"""
         <div class="metric-card">
-            <h3>🤖 Model</h3>
+            <h3>Model</h3>
             <h2>{model_status}</h2>
             <p>Label model status</p>
         </div>
@@ -174,7 +174,7 @@ def show_overview():
         
         st.markdown(f"""
         <div class="metric-card">
-            <h3>📈 Coverage</h3>
+            <h3>Coverage</h3>
             <h2>{coverage}</h2>
             <p>Examples covered</p>
         </div>
@@ -184,7 +184,7 @@ def show_overview():
     if len(st.session_state.examples) == 0:
         st.markdown('<div class="section-header">Try a Sample Workflow</div>', unsafe_allow_html=True)
         
-        if st.button("🚀 Load Sample Medical Dataset", type="primary"):
+        if st.button("Load Sample Medical Dataset", type="primary"):
             # Load sample medical data
             sample_data = [
                 "Patient diagnosed with type 2 diabetes mellitus",
@@ -200,7 +200,7 @@ def show_overview():
             ]
             
             st.session_state.examples = [Example(text=text) for text in sample_data]
-            st.success("✅ Loaded 10 sample medical examples!")
+            st.success("Loaded 10 sample medical examples!")
             st.rerun()
 
 
@@ -208,7 +208,7 @@ def show_data_upload():
     """Handle data upload and management."""
     st.markdown('<div class="section-header">Data Upload & Management</div>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3 = st.tabs(["📤 Upload", "👀 Preview", "🔧 Manage"])
+    tab1, tab2, tab3 = st.tabs(["Upload", "Preview", "Manage"])
     
     with tab1:
         st.markdown("### Upload Your Dataset")
@@ -245,7 +245,7 @@ def show_data_upload():
                 
                 if texts:
                     st.session_state.examples = [Example(text=text) for text in texts]
-                    st.success(f"✅ Successfully loaded {len(texts)} examples!")
+                    st.success(f"Successfully loaded {len(texts)} examples!")
                     
             except Exception as e:
                 st.error(f"Error loading file: {e}")
@@ -263,7 +263,7 @@ def show_data_upload():
                 texts = [t.strip() for t in manual_text.strip().split('\n') if t.strip()]
                 new_examples = [Example(text=text) for text in texts]
                 st.session_state.examples.extend(new_examples)
-                st.success(f"✅ Added {len(new_examples)} examples!")
+                st.success(f"Added {len(new_examples)} examples!")
                 st.rerun()
     
     with tab2:
@@ -314,20 +314,20 @@ def show_data_upload():
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("🗑️ Clear All Data", type="secondary"):
+                if st.button("Clear All Data", type="secondary"):
                     st.session_state.examples = []
                     st.session_state.lf_output = None
                     st.session_state.label_model = None
-                    st.success("✅ All data cleared!")
+                    st.success("All data cleared!")
                     st.rerun()
             
             with col2:
                 # Export current data
-                if st.button("💾 Export Data as JSON"):
+                if st.button("Export Data as JSON"):
                     data = [ex.text for ex in st.session_state.examples]
                     json_str = json.dumps(data, indent=2)
                     st.download_button(
-                        label="📥 Download JSON",
+                        label="Download JSON",
                         data=json_str,
                         file_name="labelforge_data.json",
                         mime="application/json"
@@ -344,7 +344,7 @@ def show_labeling_functions():
         st.warning("Please upload data first before creating labeling functions.")
         return
     
-    tab1, tab2, tab3 = st.tabs(["✏️ Create", "📋 Manage", "🧪 Test"])
+    tab1, tab2, tab3 = st.tabs(["Create", "Manage", "Test"])
     
     with tab1:
         st.markdown("### Create New Labeling Function")
@@ -439,7 +439,7 @@ def show_labeling_functions():
                         # Wrap with @lf decorator
                         func = lf(name=lf_name)(func_obj)
                     
-                    st.success(f"✅ Created labeling function '{lf_name}'!")
+                    st.success(f"Created labeling function '{lf_name}'!")
                     
                     # Test on a few examples
                     test_results = []
@@ -463,7 +463,7 @@ def show_labeling_functions():
         
         if registered_lfs:
             for lf_func in registered_lfs:
-                with st.expander(f"🏷️ {lf_func.name}"):
+                with st.expander(f"{lf_func.name}"):
                     col1, col2 = st.columns([3, 1])
                     
                     with col1:
@@ -493,13 +493,13 @@ def show_labeling_functions():
                             st.dataframe(pd.DataFrame(test_results))
                     
                     with col2:
-                        if st.button("❌ Remove", key=f"remove_{lf_func.name}"):
+                        if st.button("Remove", key=f"remove_{lf_func.name}"):
                             # Note: We can't actually remove from registry in current implementation
                             st.warning("Function removal not yet implemented. Restart app to clear registry.")
             
-            if st.button("🗑️ Clear All Functions"):
+            if st.button("Clear All Functions"):
                 clear_lf_registry()
-                st.success("✅ Cleared all labeling functions!")
+                st.success("Cleared all labeling functions!")
                 st.rerun()
                 
         else:
@@ -511,13 +511,13 @@ def show_labeling_functions():
         registered_lfs = get_registered_lfs()
         
         if registered_lfs and st.session_state.examples:
-            if st.button("🧪 Apply All Functions to Data"):
+            if st.button("Apply All Functions to Data"):
                 with st.spinner("Applying labeling functions..."):
                     try:
                         # Apply all LFs to all examples
                         st.session_state.lf_output = apply_lfs(st.session_state.examples)
                         
-                        st.success(f"✅ Applied {len(registered_lfs)} functions to {len(st.session_state.examples)} examples!")
+                        st.success(f"Applied {len(registered_lfs)} functions to {len(st.session_state.examples)} examples!")
                         
                         # Show summary statistics
                         matrix = st.session_state.lf_output.votes
@@ -599,7 +599,7 @@ def show_label_model():
         st.warning("Please apply labeling functions to your data first.")
         return
     
-    tab1, tab2 = st.tabs(["🏋️ Train Model", "⚙️ Model Configuration"])
+    tab1, tab2 = st.tabs(["Train Model", "Model Configuration"])
     
     with tab1:
         st.markdown("### Train Label Model")
@@ -638,7 +638,7 @@ def show_label_model():
                 help="Show training progress and diagnostics"
             )
         
-        if st.button("🚀 Train Label Model", type="primary"):
+        if st.button("Train Label Model", type="primary"):
             with st.spinner("Training label model..."):
                 try:
                     # Create and train the label model
@@ -667,7 +667,7 @@ def show_label_model():
                     
                     st.session_state.label_model = label_model
                     
-                    st.success("✅ Label model trained successfully!")
+                    st.success("Label model trained successfully!")
                     
                     # Show model statistics
                     col1, col2, col3 = st.columns(3)
@@ -753,7 +753,7 @@ def show_label_model():
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("📥 Download Predictions (CSV)"):
+                if st.button("Download Predictions (CSV)"):
                     # Create predictions dataframe
                     pred_df = pd.DataFrame({
                         'text': [ex.text for ex in st.session_state.examples],
@@ -767,7 +767,7 @@ def show_label_model():
                     
                     csv = pred_df.to_csv(index=False)
                     st.download_button(
-                        label="💾 Download CSV",
+                        label="Download CSV",
                         data=csv,
                         file_name="labelforge_predictions.csv",
                         mime="text/csv"
