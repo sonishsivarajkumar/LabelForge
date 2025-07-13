@@ -14,5 +14,17 @@ src/labelforge.egg-info/dependency_links.txt
 src/labelforge.egg-info/entry_points.txt
 src/labelforge.egg-info/requires.txt
 src/labelforge.egg-info/top_level.txt
+src/labelforge/analytics/__init__.py
+src/labelforge/analytics/convergence.py
+src/labelforge/analytics/evaluation.py
+src/labelforge/analytics/interpretability.py
+src/labelforge/analytics/uncertainty.py
+src/labelforge/integrations/__init__.py
+src/labelforge/integrations/huggingface.py
+src/labelforge/integrations/mlflow.py
+src/labelforge/integrations/pytorch.py
+src/labelforge/integrations/wandb.py
+src/labelforge/web/__init__.py
+src/labelforge/web/app.py
 tests/test_basic.py
 tests/test_labelforge.py

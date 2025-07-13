@@ -24,6 +24,12 @@ try:
     from labelforge import Example, LabelModel, apply_lfs, lf
     from labelforge.lf import get_registered_lfs, clear_lf_registry
     from labelforge.types import LFOutput
+    from labelforge.analytics import (
+        UncertaintyQuantifier, CalibrationAnalyzer,
+        ModelAnalyzer, LFImportanceAnalyzer,
+        ConvergenceTracker, EMDiagnostics,
+        AdvancedEvaluator, CrossValidator
+    )
 except ImportError as e:
     st.error(f"Failed to import LabelForge: {e}")
     st.stop()
@@ -805,7 +811,13 @@ def show_analysis():
         st.warning("Please apply labeling functions to your data first.")
         return
     
-    tab1, tab2, tab3 = st.tabs(["📊 LF Performance", "🔍 Conflicts", "📈 Model Analysis"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 LF Performance", 
+        "🔍 Conflicts & Interpretability", 
+        "📈 Model Analysis",
+        "🎯 Uncertainty Analysis",
+        "⚖️ Advanced Evaluation"
+    ])
     
     with tab1:
         st.markdown("### Labeling Function Performance")
@@ -974,6 +986,55 @@ def show_analysis():
             with col3:
                 conflict_rate = conflict_count / np.sum(examples_with_votes) * 100 if np.sum(examples_with_votes) > 0 else 0
                 st.metric("Conflict Rate", f"{conflict_rate:.1f}%")
+        
+        # Labeling Function Importance Analysis
+        st.markdown("### Labeling Function Importance")
+        
+        if st.session_state.label_model is not None:
+            importance_method = st.selectbox(
+                "Importance Method",
+                ["permutation", "ablation"],
+                help="Method for calculating LF importance: permutation shuffles votes, ablation removes LFs"
+            )
+            
+            if st.button("Calculate LF Importance", key="lf_importance_btn"):
+                with st.spinner("Calculating labeling function importance..."):
+                    try:
+                        importance_analyzer = LFImportanceAnalyzer(st.session_state.label_model)
+                        
+                        importance_df = importance_analyzer.calculate_lf_importance(
+                            st.session_state.lf_output,
+                            method=importance_method
+                        )
+                        
+                        st.session_state.lf_importance = importance_df
+                        st.success("LF importance analysis completed!")
+                        
+                    except Exception as e:
+                        st.error(f"Error calculating LF importance: {e}")
+            
+            # Display importance results
+            if hasattr(st.session_state, 'lf_importance'):
+                importance_df = st.session_state.lf_importance
+                
+                st.markdown("#### Importance Rankings")
+                st.dataframe(importance_df, use_container_width=True)
+                
+                # Importance plot
+                fig = px.bar(
+                    importance_df.head(10),  # Top 10 most important
+                    x='importance_score',
+                    y='lf_name',
+                    orientation='h',
+                    title="Top 10 Most Important Labeling Functions",
+                    labels={'importance_score': 'Importance Score', 'lf_name': 'Labeling Function'},
+                    color='importance_score',
+                    color_continuous_scale='RdYlBu_r'
+                )
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Train a label model first to analyze labeling function importance.")
     
     with tab3:
         st.markdown("### Model Analysis")
@@ -1067,6 +1128,374 @@ def show_analysis():
             entropy = -np.sum(probabilities * np.log(probabilities + 1e-8), axis=1)
             avg_entropy = np.mean(entropy)
             st.metric("Average Uncertainty", f"{avg_entropy:.3f}")
+    
+    with tab4:
+        st.markdown("### Uncertainty Analysis")
+        
+        if st.session_state.label_model is None:
+            st.info("Train a label model first to see uncertainty analysis.")
+            return
+        
+        model = st.session_state.label_model
+        
+        # Uncertainty quantification
+        st.markdown("#### Uncertainty Quantification")
+        
+        # Method selection
+        uncertainty_method = st.selectbox(
+            "Uncertainty Estimation Method",
+            ["bootstrap", "ensemble", "dropout"],
+            help="Choose the method for estimating prediction uncertainty"
+        )
+        
+        n_samples = st.slider("Number of Samples", 10, 200, 50, 
+                             help="Number of samples for uncertainty estimation")
+        
+        if st.button("Calculate Uncertainty", key="uncertainty_btn"):
+            with st.spinner("Calculating uncertainty estimates..."):
+                try:
+                    uncertainty_quantifier = UncertaintyQuantifier(model)
+                    predictions, probabilities, lower_bounds, upper_bounds = uncertainty_quantifier.predict_with_uncertainty(
+                        st.session_state.lf_output,
+                        method=uncertainty_method,
+                        n_samples=n_samples
+                    )
+                    
+                    # Store results in session state
+                    st.session_state.uncertainty_results = {
+                        'predictions': predictions,
+                        'probabilities': probabilities,
+                        'lower_bounds': lower_bounds,
+                        'upper_bounds': upper_bounds,
+                        'method': uncertainty_method
+                    }
+                    
+                    st.success("Uncertainty analysis completed!")
+                    
+                except Exception as e:
+                    st.error(f"Error in uncertainty calculation: {e}")
+        
+        # Display uncertainty results if available
+        if hasattr(st.session_state, 'uncertainty_results'):
+            results = st.session_state.uncertainty_results
+            
+            # Uncertainty summary
+            st.markdown("#### Uncertainty Summary")
+            
+            max_probs = np.max(results['probabilities'], axis=1)
+            uncertainty_width = results['upper_bounds'][np.arange(len(results['predictions'])), results['predictions']] - \
+                               results['lower_bounds'][np.arange(len(results['predictions'])), results['predictions']]
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Mean Confidence", f"{np.mean(max_probs):.3f}")
+            
+            with col2:
+                st.metric("Mean Uncertainty Width", f"{np.mean(uncertainty_width):.3f}")
+            
+            with col3:
+                high_uncertainty_count = np.sum(uncertainty_width > np.percentile(uncertainty_width, 75))
+                st.metric("High Uncertainty Examples", f"{high_uncertainty_count}")
+            
+            # Uncertainty distribution plot
+            fig = px.histogram(
+                x=uncertainty_width,
+                nbins=30,
+                title="Uncertainty Width Distribution",
+                labels={"x": "Uncertainty Width", "y": "Count"}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Examples with highest uncertainty
+            st.markdown("#### Highest Uncertainty Examples")
+            uncertainty_order = np.argsort(uncertainty_width)[::-1]
+            
+            for i, idx in enumerate(uncertainty_order[:5]):
+                with st.expander(f"Example {i+1}: Uncertainty Width = {uncertainty_width[idx]:.3f}"):
+                    st.write(st.session_state.examples[idx].text)
+                    
+                    # Show probability distribution with confidence intervals
+                    prob_data = pd.DataFrame({
+                        'Class': [f"Class {j}" for j in range(results['probabilities'].shape[1])],
+                        'Probability': results['probabilities'][idx],
+                        'Lower Bound': results['lower_bounds'][idx],
+                        'Upper Bound': results['upper_bounds'][idx]
+                    })
+                    
+                    fig = px.bar(prob_data, x='Class', y='Probability',
+                               title=f"Prediction: Class {results['predictions'][idx]}")
+                    
+                    # Add error bars
+                    fig.update_traces(
+                        error_y=dict(
+                            type='data',
+                            array=prob_data['Upper Bound'] - prob_data['Probability'],
+                            arrayminus=prob_data['Probability'] - prob_data['Lower Bound']
+                        )
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Calibration analysis
+        st.markdown("#### Model Calibration Analysis")
+        
+        if st.button("Analyze Calibration", key="calibration_btn"):
+            with st.spinner("Analyzing model calibration..."):
+                try:
+                    calibration_analyzer = CalibrationAnalyzer()
+                    probabilities = model.predict_proba(st.session_state.lf_output)
+                    
+                    calibration_data = calibration_analyzer.analyze_calibration(
+                        probabilities, n_bins=10
+                    )
+                    
+                    st.session_state.calibration_data = calibration_data
+                    st.success("Calibration analysis completed!")
+                    
+                except Exception as e:
+                    st.error(f"Error in calibration analysis: {e}")
+        
+        # Display calibration results
+        if hasattr(st.session_state, 'calibration_data'):
+            calib_data = st.session_state.calibration_data
+            
+            # Confidence distribution
+            confidence_dist = calib_data['confidence_distribution']
+            
+            fig = px.bar(
+                x=confidence_dist['bin_centers'],
+                y=confidence_dist['bin_frequencies'],
+                title="Confidence Distribution",
+                labels={"x": "Confidence", "y": "Frequency"}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab5:
+        st.markdown("### Advanced Evaluation")
+        
+        if st.session_state.label_model is None:
+            st.info("Train a label model first to see advanced evaluation.")
+            return
+        
+        model = st.session_state.label_model
+        
+        # Comprehensive evaluation
+        st.markdown("#### Comprehensive Model Evaluation")
+        
+        if st.button("Run Comprehensive Evaluation", key="eval_btn"):
+            with st.spinner("Running comprehensive evaluation..."):
+                try:
+                    evaluator = AdvancedEvaluator()
+                    
+                    eval_results = evaluator.evaluate_comprehensive(
+                        model,
+                        st.session_state.lf_output,
+                        examples=st.session_state.examples
+                    )
+                    
+                    st.session_state.eval_results = eval_results
+                    st.success("Comprehensive evaluation completed!")
+                    
+                except Exception as e:
+                    st.error(f"Error in comprehensive evaluation: {e}")
+        
+        # Display evaluation results
+        if hasattr(st.session_state, 'eval_results'):
+            results = st.session_state.eval_results
+            
+            # Model Statistics
+            st.markdown("#### Model Statistics")
+            model_stats = results['model_stats']
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Total Examples", model_stats['n_examples'])
+            
+            with col2:
+                st.metric("Classes", model_stats['n_classes'])
+            
+            with col3:
+                st.metric("Mean Confidence", f"{model_stats['mean_confidence']:.3f}")
+            
+            with col4:
+                st.metric("Mean Entropy", f"{model_stats['mean_entropy']:.3f}")
+            
+            # Class distribution
+            class_dist_df = pd.DataFrame(
+                list(model_stats['class_distribution'].items()),
+                columns=['Class', 'Count']
+            )
+            
+            fig = px.pie(class_dist_df, values='Count', names='Class',
+                        title="Predicted Class Distribution")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Weak Supervision Metrics
+            st.markdown("#### Weak Supervision Metrics")
+            ws_metrics = results['weak_supervision_metrics']
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Coverage", f"{ws_metrics['total_coverage']:.1%}")
+            
+            with col2:
+                st.metric("Conflict Rate", f"{ws_metrics['conflict_rate']:.1%}")
+            
+            with col3:
+                st.metric("Avg Agreement", f"{ws_metrics['avg_pairwise_agreement']:.1%}")
+            
+            # Coverage Analysis
+            st.markdown("#### Coverage Analysis")
+            coverage_analysis = results['coverage_analysis']
+            
+            # Coverage distribution
+            coverage_dist_df = pd.DataFrame(
+                list(coverage_analysis['coverage_distribution'].items()),
+                columns=['LFs_Covering', 'Count']
+            )
+            
+            fig = px.bar(coverage_dist_df, x='LFs_Covering', y='Count',
+                        title="Examples Covered by K Labeling Functions")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("Uncovered Examples", coverage_analysis['uncovered_examples'])
+            
+            with col2:
+                st.metric("Mean Coverage per Example", f"{coverage_analysis['mean_coverage_per_example']:.1f}")
+        
+        # Cross-validation
+        st.markdown("#### Cross-Validation Analysis")
+        
+        cv_folds = st.slider("CV Folds", 3, 10, 5, help="Number of cross-validation folds")
+        
+        if st.button("Run Cross-Validation", key="cv_btn"):
+            with st.spinner(f"Running {cv_folds}-fold cross-validation..."):
+                try:
+                    cross_validator = CrossValidator(cv_folds=cv_folds, random_state=42)
+                    
+                    cv_results = cross_validator.cross_validate_ws(
+                        st.session_state.lf_output,
+                        st.session_state.examples,
+                        model_params={'cardinality': model.cardinality}
+                    )
+                    
+                    st.session_state.cv_results = cv_results
+                    st.success("Cross-validation completed!")
+                    
+                except Exception as e:
+                    st.error(f"Error in cross-validation: {e}")
+        
+        # Display CV results
+        if hasattr(st.session_state, 'cv_results'):
+            cv_results = st.session_state.cv_results
+            
+            st.markdown("#### Cross-Validation Results")
+            
+            # Extract metrics that are available
+            available_metrics = []
+            metric_names = ['total_coverage', 'conflict_rate', 'avg_pairwise_agreement']
+            
+            for metric in metric_names:
+                if f'{metric}_mean' in cv_results:
+                    available_metrics.append(metric)
+            
+            if available_metrics:
+                cols = st.columns(len(available_metrics))
+                
+                for i, metric in enumerate(available_metrics):
+                    with cols[i]:
+                        mean_val = cv_results[f'{metric}_mean']
+                        std_val = cv_results[f'{metric}_std']
+                        display_name = metric.replace('_', ' ').title()
+                        st.metric(display_name, f"{mean_val:.3f} ± {std_val:.3f}")
+            
+            # Fold-by-fold results
+            if st.checkbox("Show Fold-by-Fold Results"):
+                fold_data = []
+                for i, fold_result in enumerate(cv_results['fold_results']):
+                    row = {'Fold': i + 1}
+                    
+                    if 'weak_supervision_metrics' in fold_result:
+                        ws_metrics = fold_result['weak_supervision_metrics']
+                        row.update({
+                            'Coverage': f"{ws_metrics.get('total_coverage', 0):.3f}",
+                            'Conflict Rate': f"{ws_metrics.get('conflict_rate', 0):.3f}",
+                            'Agreement': f"{ws_metrics.get('avg_pairwise_agreement', 0):.3f}"
+                        })
+                    
+                    fold_data.append(row)
+                
+                if fold_data:
+                    fold_df = pd.DataFrame(fold_data)
+                    st.dataframe(fold_df, use_container_width=True)
+        
+        # Model Interpretability
+        st.markdown("#### Model Interpretability")
+        
+        if st.button("Analyze LF Interactions", key="interpret_btn"):
+            with st.spinner("Analyzing labeling function interactions..."):
+                try:
+                    model_analyzer = ModelAnalyzer(model)
+                    
+                    lf_analysis = model_analyzer.analyze_lf_interactions(st.session_state.lf_output)
+                    
+                    st.session_state.lf_analysis = lf_analysis
+                    st.success("LF interaction analysis completed!")
+                    
+                except Exception as e:
+                    st.error(f"Error in LF interaction analysis: {e}")
+        
+        # Display interpretability results
+        if hasattr(st.session_state, 'lf_analysis'):
+            lf_analysis = st.session_state.lf_analysis
+            
+            # Coverage statistics
+            coverage_df = lf_analysis['coverage']
+            
+            st.markdown("##### Labeling Function Coverage Statistics")
+            st.dataframe(coverage_df, use_container_width=True)
+            
+            # Correlation heatmap
+            if len(lf_analysis['lf_names']) > 1:
+                st.markdown("##### LF Correlation Matrix")
+                correlations = lf_analysis['correlations']
+                lf_names = lf_analysis['lf_names']
+                
+                # Create correlation heatmap using plotly
+                fig = px.imshow(
+                    correlations,
+                    x=lf_names,
+                    y=lf_names,
+                    color_continuous_scale='RdBu_r',
+                    color_continuous_midpoint=0,
+                    title="Labeling Function Correlation Matrix"
+                )
+                fig.update_layout(height=500)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Agreement analysis
+            agreements = lf_analysis['agreements']
+            avg_agreement = agreements['avg_pairwise_agreement']
+            
+            st.markdown(f"##### Average Pairwise Agreement: {avg_agreement:.1%}")
+            
+            # Conflict examples
+            conflicts_df = lf_analysis['conflicts']
+            if len(conflicts_df) > 0:
+                st.markdown("##### Conflict Examples")
+                st.write(f"Found {len(conflicts_df)} examples with conflicting votes")
+                
+                if st.checkbox("Show Conflict Details"):
+                    for i, row in conflicts_df.head(5).iterrows():
+                        with st.expander(f"Conflict Example {i+1}"):
+                            st.write(f"**Text:** {st.session_state.examples[row['example_idx']].text}")
+                            st.write(f"**Conflicting LFs:** {row['conflicting_lfs']}")
+                            st.write(f"**Number of conflicts:** {row['n_conflicts']}")
 
 
 def show_results():

@@ -60,9 +60,17 @@ web = [
     "plotly>=5.15.0",
     "altair>=5.0.0",
     "streamlit-aggrid>=0.3.4",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
+]
+integrations = [
+    "datasets>=2.0.0",  # Hugging Face datasets
+    "transformers>=4.12.0",  # Hugging Face transformers
+    "mlflow>=2.0.0",  # MLflow experiment tracking
+    "wandb>=0.15.0",  # Weights & Biases
 ]
 all = [
-    "labelforge[dev,torch,web]",
+    "labelforge[dev,torch,web,integrations]",
 ]
 
 [project.urls]
