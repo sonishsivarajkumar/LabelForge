@@ -58,8 +58,20 @@ Requires-Dist: datasets>=2.0.0; extra == "integrations"
 Requires-Dist: transformers>=4.12.0; extra == "integrations"
 Requires-Dist: mlflow>=2.0.0; extra == "integrations"
 Requires-Dist: wandb>=0.15.0; extra == "integrations"
+Provides-Extra: research
+Requires-Dist: scipy>=1.7.0; extra == "research"
+Requires-Dist: matplotlib>=3.5.0; extra == "research"
+Requires-Dist: seaborn>=0.11.0; extra == "research"
+Requires-Dist: jupyter>=1.0.0; extra == "research"
+Requires-Dist: ipywidgets>=7.6.0; extra == "research"
+Requires-Dist: plotly>=5.0.0; extra == "research"
+Requires-Dist: kaleido>=0.2.1; extra == "research"
+Provides-Extra: benchmarks
+Requires-Dist: requests>=2.25.0; extra == "benchmarks"
+Requires-Dist: tqdm>=4.60.0; extra == "benchmarks"
+Requires-Dist: tabulate>=0.8.9; extra == "benchmarks"
 Provides-Extra: all
-Requires-Dist: labelforge[dev,integrations,torch,web]; extra == "all"
+Requires-Dist: labelforge[benchmarks,dev,integrations,research,torch,web]; extra == "all"
 Dynamic: license-file
 
 # LabelForge

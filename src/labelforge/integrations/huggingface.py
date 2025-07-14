@@ -8,6 +8,7 @@ Hugging Face datasets and models for NLP tasks.
 import numpy as np
 from typing import List, Dict, Any, Optional, Union
 import warnings
+from typing import TYPE_CHECKING, Any, Union
 
 try:
     from datasets import Dataset, DatasetDict
@@ -15,6 +16,11 @@ try:
 except ImportError:
     HAS_DATASETS = False
     warnings.warn("Hugging Face datasets not available. HuggingFace integration disabled.")
+    # Create dummy classes for type hints
+    class Dataset:
+        pass
+    class DatasetDict:
+        pass
 
 try:
     from transformers import AutoTokenizer, AutoModelForSequenceClassification

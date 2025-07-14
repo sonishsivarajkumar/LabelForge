@@ -373,18 +373,24 @@ class CrossValidator:
             train_votes = votes[train_idx]
             val_votes = votes[val_idx]
             
+            # Create example IDs for train and validation splits
+            train_example_ids = [lf_output.example_ids[i] for i in train_idx]
+            val_example_ids = [lf_output.example_ids[i] for i in val_idx]
+            
             train_lf_output = LFOutput(
                 votes=train_votes,
-                lf_names=lf_output.lf_names
+                lf_names=lf_output.lf_names,
+                example_ids=train_example_ids
             )
             val_lf_output = LFOutput(
                 votes=val_votes,
-                lf_names=lf_output.lf_names
+                lf_names=lf_output.lf_names,
+                example_ids=val_example_ids
             )
             
             # Train model on fold
             model = LabelModel(**model_params)
-            model.fit(train_lf_output, verbose=False)
+            model.fit(train_lf_output)
             
             # Evaluate on validation set
             val_true_labels = true_labels[val_idx] if true_labels is not None else None

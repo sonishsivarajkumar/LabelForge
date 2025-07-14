@@ -18,6 +18,13 @@ except ImportError:
     HAS_PLOTTING = False
     warnings.warn("Matplotlib not available. Plotting functionality disabled.")
 
+try:
+    import shap
+    HAS_SHAP = True
+except ImportError:
+    HAS_SHAP = False
+    warnings.warn("SHAP not available. SHAP-based interpretability features disabled.")
+
 from ..types import LFOutput
 from ..label_model import LabelModel
 
@@ -38,7 +45,7 @@ class ModelAnalyzer:
             label_model: Trained LabelModel instance
         """
         self.label_model = label_model
-        self.is_fitted = hasattr(label_model, 'mu')
+        self.is_fitted = hasattr(label_model, 'class_priors_') and label_model.class_priors_ is not None
         
     def analyze_lf_interactions(self, lf_output: LFOutput) -> Dict[str, Any]:
         """
@@ -328,7 +335,7 @@ class LFImportanceAnalyzer:
             label_model: Trained LabelModel instance
         """
         self.label_model = label_model
-        self.is_fitted = hasattr(label_model, 'mu')
+        self.is_fitted = hasattr(label_model, 'class_priors_') and label_model.class_priors_ is not None
     
     def calculate_lf_importance(
         self, 
@@ -470,6 +477,277 @@ class LFImportanceAnalyzer:
                 bar.set_color('skyblue')
             else:
                 bar.set_color('lightcoral')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        
+        plt.show()
+
+
+class SHAPLFAnalyzer:
+    """
+    SHAP-based analysis for labeling function importance.
+    
+    Provides SHAP values and feature attribution analysis for understanding
+    which labeling functions contribute most to model predictions.
+    """
+    
+    def __init__(self, label_model: LabelModel):
+        """
+        Initialize SHAP analyzer.
+        
+        Args:
+            label_model: Trained LabelModel instance
+        """
+        self.label_model = label_model
+        self.is_fitted = hasattr(label_model, 'class_priors_') and label_model.class_priors_ is not None
+        
+        if not HAS_SHAP:
+            warnings.warn("SHAP not available. Install with: pip install shap")
+    
+    def compute_shap_values(
+        self, 
+        lf_output: LFOutput,
+        background_size: int = 100,
+        max_evals: int = 1000
+    ) -> Dict[str, Any]:
+        """
+        Compute SHAP values for labeling function importance.
+        
+        Args:
+            lf_output: LFOutput containing labeling function votes
+            background_size: Size of background dataset for SHAP
+            max_evals: Maximum evaluations for SHAP explainer
+            
+        Returns:
+            Dictionary with SHAP values and analysis
+        """
+        if not self.is_fitted:
+            raise ValueError("Label model must be fitted before SHAP analysis")
+        
+        if not HAS_SHAP:
+            raise ImportError("SHAP package required. Install with: pip install shap")
+        
+        # Prepare data for SHAP
+        votes = lf_output.votes.astype(float)
+        
+        # Create a wrapper function for the model
+        def model_wrapper(votes_batch):
+            """Wrapper to make model compatible with SHAP."""
+            results = []
+            for votes_row in votes_batch:
+                # Create temporary LFOutput for single example
+                temp_lf_output = LFOutput(
+                    votes=votes_row.reshape(1, -1).astype(int),
+                    lf_names=lf_output.lf_names,
+                    example_ids=['temp']
+                )
+                probs = self.label_model.predict_proba(temp_lf_output)
+                results.append(probs[0])
+            return np.array(results)
+        
+        # Sample background data
+        background_indices = np.random.choice(
+            len(votes), 
+            min(background_size, len(votes)), 
+            replace=False
+        )
+        background_data = votes[background_indices]
+        
+        # Create SHAP explainer
+        explainer = shap.KernelExplainer(model_wrapper, background_data)
+        
+        # Calculate SHAP values for a subset of examples
+        sample_size = min(50, len(votes))  # Limit for computational efficiency
+        sample_indices = np.random.choice(len(votes), sample_size, replace=False)
+        sample_votes = votes[sample_indices]
+        
+        shap_values = explainer.shap_values(sample_votes, nsamples=max_evals)
+        
+        # Process results
+        results = {
+            'shap_values': shap_values,
+            'feature_names': lf_output.lf_names,
+            'sample_indices': sample_indices,
+            'background_data': background_data,
+            'expected_value': explainer.expected_value
+        }
+        
+        # Calculate feature importance
+        if isinstance(shap_values, list):  # Multi-class case
+            # Average absolute SHAP values across classes and examples
+            mean_abs_shap = np.mean([np.mean(np.abs(sv), axis=0) for sv in shap_values], axis=0)
+        else:  # Binary case
+            mean_abs_shap = np.mean(np.abs(shap_values), axis=0)
+        
+        results['feature_importance'] = pd.DataFrame({
+            'lf_name': lf_output.lf_names,
+            'importance': mean_abs_shap
+        }).sort_values('importance', ascending=False)
+        
+        return results
+    
+    def plot_shap_summary(
+        self, 
+        shap_results: Dict[str, Any],
+        plot_type: str = "summary",
+        max_display: int = 10,
+        save_path: Optional[str] = None
+    ) -> None:
+        """
+        Create SHAP summary plots.
+        
+        Args:
+            shap_results: Results from compute_shap_values
+            plot_type: Type of plot ("summary", "bar", "waterfall")
+            max_display: Maximum features to display
+            save_path: Optional path to save the plot
+        """
+        if not HAS_SHAP:
+            raise ImportError("SHAP package required for plotting")
+        
+        if not HAS_PLOTTING:
+            raise ImportError("Matplotlib required for plotting")
+        
+        shap_values = shap_results['shap_values']
+        feature_names = shap_results['feature_names']
+        
+        plt.figure(figsize=(10, 8))
+        
+        if plot_type == "summary":
+            if isinstance(shap_values, list):
+                # Multi-class: plot for each class
+                for i, sv in enumerate(shap_values):
+                    plt.subplot(len(shap_values), 1, i + 1)
+                    shap.summary_plot(sv, feature_names=feature_names, 
+                                    max_display=max_display, show=False)
+                    plt.title(f"Class {i}")
+            else:
+                shap.summary_plot(shap_values, feature_names=feature_names, 
+                                max_display=max_display, show=False)
+        
+        elif plot_type == "bar":
+            if isinstance(shap_values, list):
+                # Average across classes for bar plot
+                mean_shap = np.mean([np.mean(np.abs(sv), axis=0) for sv in shap_values], axis=0)
+            else:
+                mean_shap = np.mean(np.abs(shap_values), axis=0)
+            
+            # Create bar plot
+            importance_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': mean_shap
+            }).sort_values('importance', ascending=True)
+            
+            plt.barh(range(len(importance_df)), importance_df['importance'])
+            plt.yticks(range(len(importance_df)), importance_df['feature'])
+            plt.xlabel('Mean |SHAP value|')
+            plt.title('Labeling Function Importance')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        
+        plt.show()
+
+
+class AdvancedLFImportanceAnalyzer(LFImportanceAnalyzer):
+    """
+    Enhanced LF importance analyzer with additional methods.
+    """
+    
+    def __init__(self, label_model: LabelModel):
+        super().__init__(label_model)
+        self.shap_analyzer = SHAPLFAnalyzer(label_model) if HAS_SHAP else None
+    
+    def comprehensive_importance_analysis(
+        self, 
+        lf_output: LFOutput,
+        methods: List[str] = ["permutation", "weight", "correlation"],
+        include_shap: bool = True
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Comprehensive importance analysis using multiple methods.
+        
+        Args:
+            lf_output: LFOutput containing labeling function votes
+            methods: List of importance methods to use
+            include_shap: Whether to include SHAP analysis
+            
+        Returns:
+            Dictionary with importance results from different methods
+        """
+        results = {}
+        
+        # Standard importance methods
+        for method in methods:
+            try:
+                results[method] = self.calculate_lf_importance(lf_output, method=method)
+            except Exception as e:
+                warnings.warn(f"Failed to calculate {method} importance: {e}")
+        
+        # SHAP analysis
+        if include_shap and self.shap_analyzer and HAS_SHAP:
+            try:
+                shap_results = self.shap_analyzer.compute_shap_values(lf_output)
+                results['shap'] = shap_results['feature_importance']
+            except Exception as e:
+                warnings.warn(f"Failed to calculate SHAP importance: {e}")
+        
+        return results
+    
+    def plot_importance_comparison(
+        self, 
+        importance_results: Dict[str, pd.DataFrame],
+        save_path: Optional[str] = None
+    ) -> None:
+        """
+        Plot comparison of importance scores from different methods.
+        
+        Args:
+            importance_results: Results from comprehensive_importance_analysis
+            save_path: Optional path to save the plot
+        """
+        if not HAS_PLOTTING:
+            raise ImportError("Matplotlib required for plotting")
+        
+        # Combine results into a single DataFrame
+        combined_df = None
+        
+        for method, df in importance_results.items():
+            if 'lf_name' in df.columns and 'importance' in df.columns:
+                method_df = df[['lf_name', 'importance']].copy()
+                method_df.columns = ['lf_name', f'{method}_importance']
+                
+                if combined_df is None:
+                    combined_df = method_df
+                else:
+                    combined_df = combined_df.merge(method_df, on='lf_name', how='outer')
+        
+        if combined_df is None or len(combined_df) == 0:
+            warnings.warn("No valid importance results to plot")
+            return
+        
+        # Create comparison plot
+        n_methods = len(importance_results)
+        fig, axes = plt.subplots(1, n_methods, figsize=(5 * n_methods, 6))
+        
+        if n_methods == 1:
+            axes = [axes]
+        
+        for i, (method, df) in enumerate(importance_results.items()):
+            if 'lf_name' in df.columns and 'importance' in df.columns:
+                df_sorted = df.sort_values('importance', ascending=True)
+                
+                axes[i].barh(range(len(df_sorted)), df_sorted['importance'])
+                axes[i].set_yticks(range(len(df_sorted)))
+                axes[i].set_yticklabels(df_sorted['lf_name'])
+                axes[i].set_xlabel('Importance Score')
+                axes[i].set_title(f'{method.title()} Importance')
+                axes[i].grid(True, alpha=0.3)
         
         plt.tight_layout()
         

@@ -349,3 +349,211 @@ class EMDiagnostics:
             'recommendations': recommendations,
             'convergence_summary': convergence_tracker.get_convergence_summary()
         }
+
+
+class EnhancedConvergenceTracker(ConvergenceTracker):
+    """
+    Enhanced convergence tracker with advanced visualization and analysis.
+    """
+    
+    def __init__(self):
+        super().__init__()
+        self.parameter_trajectories = {}
+        self.gradient_norms = []
+        self.eigenvalue_history = []
+    
+    def record_enhanced_iteration(
+        self,
+        iteration: int,
+        log_likelihood: float,
+        parameter_change: float,
+        convergence_criterion: float,
+        parameters: Optional[Dict[str, np.ndarray]] = None,
+        gradient_norm: Optional[float] = None,
+        hessian_eigenvalues: Optional[np.ndarray] = None
+    ) -> None:
+        """
+        Record enhanced metrics for a single iteration.
+        
+        Args:
+            iteration: Current iteration number
+            log_likelihood: Current log likelihood
+            parameter_change: Change in parameters from previous iteration
+            convergence_criterion: Current convergence criterion value
+            parameters: Current parameter values
+            gradient_norm: Norm of gradient vector
+            hessian_eigenvalues: Eigenvalues of Hessian matrix
+        """
+        # Record basic metrics
+        self.record_iteration(iteration, log_likelihood, parameter_change, convergence_criterion)
+        
+        # Record parameter trajectories
+        if parameters:
+            for param_name, param_value in parameters.items():
+                if param_name not in self.parameter_trajectories:
+                    self.parameter_trajectories[param_name] = []
+                
+                # Store statistics of parameter arrays
+                self.parameter_trajectories[param_name].append({
+                    'mean': np.mean(param_value),
+                    'std': np.std(param_value),
+                    'min': np.min(param_value),
+                    'max': np.max(param_value),
+                    'norm': np.linalg.norm(param_value.flatten())
+                })
+        
+        # Record gradient information
+        if gradient_norm is not None:
+            self.gradient_norms.append(gradient_norm)
+        
+        # Record eigenvalue information
+        if hessian_eigenvalues is not None:
+            self.eigenvalue_history.append({
+                'min_eigenvalue': np.min(hessian_eigenvalues),
+                'max_eigenvalue': np.max(hessian_eigenvalues),
+                'condition_number': np.max(hessian_eigenvalues) / (np.min(hessian_eigenvalues) + 1e-10)
+            })
+    
+    def plot_comprehensive_convergence(
+        self,
+        save_path: Optional[str] = None,
+        figsize: Tuple[int, int] = (15, 12)
+    ) -> None:
+        """
+        Create comprehensive convergence visualization.
+        
+        Args:
+            save_path: Optional path to save the plot
+            figsize: Figure size for the plot
+        """
+        if not HAS_PLOTTING:
+            raise ImportError("Matplotlib required for plotting")
+        
+        if not self.history['iteration']:
+            raise ValueError("No convergence data to plot")
+        
+        # Create subplots
+        fig, axes = plt.subplots(2, 3, figsize=figsize)
+        iterations = self.history['iteration']
+        
+        # 1. Log likelihood evolution
+        axes[0, 0].plot(iterations, self.history['log_likelihood'], 'b-', linewidth=2)
+        axes[0, 0].set_xlabel('Iteration')
+        axes[0, 0].set_ylabel('Log Likelihood')
+        axes[0, 0].set_title('Log Likelihood Evolution')
+        axes[0, 0].grid(True, alpha=0.3)
+        
+        # 2. Parameter changes
+        axes[0, 1].semilogy(iterations, self.history['parameter_changes'], 'r-', linewidth=2)
+        axes[0, 1].set_xlabel('Iteration')
+        axes[0, 1].set_ylabel('Parameter Change (log scale)')
+        axes[0, 1].set_title('Parameter Change Evolution')
+        axes[0, 1].grid(True, alpha=0.3)
+        
+        # 3. Convergence criteria
+        axes[0, 2].semilogy(iterations, self.history['convergence_criteria'], 'g-', linewidth=2)
+        axes[0, 2].axhline(y=1e-6, color='r', linestyle='--', alpha=0.7, label='Tolerance')
+        axes[0, 2].set_xlabel('Iteration')
+        axes[0, 2].set_ylabel('Convergence Criterion (log scale)')
+        axes[0, 2].set_title('Convergence Criterion')
+        axes[0, 2].legend()
+        axes[0, 2].grid(True, alpha=0.3)
+        
+        # 4. Parameter trajectory norms
+        if self.parameter_trajectories:
+            for param_name, trajectory in self.parameter_trajectories.items():
+                norms = [point['norm'] for point in trajectory]
+                axes[1, 0].plot(iterations[:len(norms)], norms, label=param_name, linewidth=2)
+            
+            axes[1, 0].set_xlabel('Iteration')
+            axes[1, 0].set_ylabel('Parameter Norm')
+            axes[1, 0].set_title('Parameter Trajectory Norms')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True, alpha=0.3)
+        else:
+            axes[1, 0].text(0.5, 0.5, 'No parameter trajectory data', 
+                           ha='center', va='center', transform=axes[1, 0].transAxes)
+            axes[1, 0].set_title('Parameter Trajectory Norms')
+        
+        # 5. Gradient norms
+        if self.gradient_norms:
+            grad_iterations = iterations[:len(self.gradient_norms)]
+            axes[1, 1].semilogy(grad_iterations, self.gradient_norms, 'purple', linewidth=2)
+            axes[1, 1].set_xlabel('Iteration')
+            axes[1, 1].set_ylabel('Gradient Norm (log scale)')
+            axes[1, 1].set_title('Gradient Norm Evolution')
+            axes[1, 1].grid(True, alpha=0.3)
+        else:
+            axes[1, 1].text(0.5, 0.5, 'No gradient data available', 
+                           ha='center', va='center', transform=axes[1, 1].transAxes)
+            axes[1, 1].set_title('Gradient Norm Evolution')
+        
+        # 6. Condition number
+        if self.eigenvalue_history:
+            eig_iterations = iterations[:len(self.eigenvalue_history)]
+            condition_numbers = [eig['condition_number'] for eig in self.eigenvalue_history]
+            axes[1, 2].semilogy(eig_iterations, condition_numbers, 'orange', linewidth=2)
+            axes[1, 2].set_xlabel('Iteration')
+            axes[1, 2].set_ylabel('Condition Number (log scale)')
+            axes[1, 2].set_title('Hessian Condition Number')
+            axes[1, 2].grid(True, alpha=0.3)
+        else:
+            axes[1, 2].text(0.5, 0.5, 'No eigenvalue data available', 
+                           ha='center', va='center', transform=axes[1, 2].transAxes)
+            axes[1, 2].set_title('Hessian Condition Number')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        
+        plt.show()
+    
+    def analyze_convergence_behavior(self) -> Dict[str, Any]:
+        """
+        Analyze convergence behavior and provide insights.
+        
+        Returns:
+            Dictionary with convergence analysis
+        """
+        if not self.history['iteration']:
+            return {'error': 'No convergence data available'}
+        
+        analysis = self.get_convergence_summary()
+        
+        # Analyze likelihood progression
+        likelihood_diffs = np.diff(self.history['log_likelihood'])
+        analysis.update({
+            'likelihood_monotonic': np.all(likelihood_diffs >= -1e-10),  # Allow small numerical errors
+            'likelihood_variance': np.var(likelihood_diffs),
+            'average_likelihood_improvement': np.mean(likelihood_diffs[likelihood_diffs > 0])
+        })
+        
+        # Analyze parameter stability
+        if len(self.history['parameter_changes']) > 5:
+            recent_changes = self.history['parameter_changes'][-5:]
+            analysis.update({
+                'parameter_stability': np.std(recent_changes),
+                'parameter_trend': 'decreasing' if recent_changes[-1] < recent_changes[0] else 'increasing'
+            })
+        
+        # Analyze convergence quality
+        if len(self.history['convergence_criteria']) > 1:
+            conv_rate = self._estimate_convergence_rate()
+            analysis.update({
+                'convergence_quality': self._assess_convergence_quality(conv_rate),
+                'estimated_convergence_rate': conv_rate
+            })
+        
+        return analysis
+    
+    def _assess_convergence_quality(self, convergence_rate: float) -> str:
+        """Assess the quality of convergence based on convergence rate."""
+        if convergence_rate > 0.9:
+            return "slow"
+        elif convergence_rate > 0.7:
+            return "moderate"
+        elif convergence_rate > 0.3:
+            return "good"
+        else:
+            return "excellent"

@@ -112,7 +112,7 @@ class PyTorchExporter:
             raise ImportError("PyTorch is required for PyTorchExporter")
         
         self.label_model = label_model
-        self.is_fitted = hasattr(label_model, 'mu')
+        self.is_fitted = hasattr(label_model, 'class_priors_')
     
     def to_pytorch_dataset(
         self,

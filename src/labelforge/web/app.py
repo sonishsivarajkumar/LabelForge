@@ -24,12 +24,45 @@ try:
     from labelforge import Example, LabelModel, apply_lfs, lf
     from labelforge.lf import get_registered_lfs, clear_lf_registry
     from labelforge.types import LFOutput
-    from labelforge.analytics import (
-        UncertaintyQuantifier, CalibrationAnalyzer,
-        ModelAnalyzer, LFImportanceAnalyzer,
-        ConvergenceTracker, EMDiagnostics,
-        AdvancedEvaluator, CrossValidator
-    )
+    
+    # Try to import analytics modules, but continue if they fail
+    try:
+        from labelforge.analytics import (
+            UncertaintyQuantifier, AdvancedCalibrationAnalyzer,
+            ModelAnalyzer, AdvancedLFImportanceAnalyzer,
+            EnhancedConvergenceTracker, EMDiagnostics,
+            AdvancedEvaluator, CrossValidator
+        )
+        HAS_ANALYTICS = True
+    except ImportError as analytics_error:
+        st.warning(f"Analytics modules not fully available: {analytics_error}")
+        HAS_ANALYTICS = False
+        # Create placeholder classes to prevent errors
+        class UncertaintyQuantifier:
+            def __init__(self, *args, **kwargs):
+                pass
+        class AdvancedCalibrationAnalyzer:
+            def __init__(self, *args, **kwargs):
+                pass
+        class ModelAnalyzer:
+            def __init__(self, *args, **kwargs):
+                pass
+        class AdvancedLFImportanceAnalyzer:
+            def __init__(self, *args, **kwargs):
+                pass
+        class EnhancedConvergenceTracker:
+            def __init__(self, *args, **kwargs):
+                pass
+        class EMDiagnostics:
+            def __init__(self, *args, **kwargs):
+                pass
+        class AdvancedEvaluator:
+            def __init__(self, *args, **kwargs):
+                pass
+        class CrossValidator:
+            def __init__(self, *args, **kwargs):
+                pass
+        
 except ImportError as e:
     st.error(f"Failed to import LabelForge: {e}")
     st.stop()
@@ -309,7 +342,7 @@ def show_data_upload():
                     title="Distribution of Text Lengths (Words)",
                     labels={"x": "Number of Words", "y": "Count"}
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="text_length_distribution")
         else:
             st.info("No data loaded yet. Upload data in the Upload tab.")
     
@@ -586,7 +619,7 @@ def show_labeling_functions():
                             color_continuous_scale=["red", "gray", "green"],
                             aspect="auto"
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, key="lf_output_heatmap_plot")
                         
                     except Exception as e:
                         st.error(f"Error applying labeling functions: {e}")
@@ -702,7 +735,7 @@ def show_label_model():
                         title="Distribution of Predicted Labels",
                         labels={"x": "Predicted Label", "y": "Count"}
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="predicted_labels_distribution")
                     
                     # Show confidence distribution
                     st.markdown("### Prediction Confidence")
@@ -714,7 +747,7 @@ def show_label_model():
                         title="Distribution of Prediction Confidence",
                         labels={"x": "Max Probability", "y": "Count"}
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="prediction_confidence_distribution")
                     
                 except Exception as e:
                     st.error(f"Error training label model: {e}")
@@ -852,7 +885,7 @@ def show_analysis():
             labels={'Coverage': 'Coverage Rate', 'Function': 'Labeling Function'}
         )
         fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="plotly_chart_5")
         
         # Detailed statistics table
         st.markdown("### Detailed Statistics")
@@ -880,7 +913,7 @@ def show_analysis():
             color_discrete_map={'Positive': 'green', 'Negative': 'red', 'Abstain': 'gray'}
         )
         fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="plotly_chart_6")
     
     with tab2:
         st.markdown("### Conflict Analysis")
@@ -942,7 +975,7 @@ def show_analysis():
                 title="Pairwise Agreement Rates",
                 labels={'Agreement Rate': 'Agreement Rate', 'y': 'Function Pairs'}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_7")
             
             # Show conflict examples
             if conflict_examples:
@@ -1032,7 +1065,7 @@ def show_analysis():
                     color_continuous_scale='RdYlBu_r'
                 )
                 fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="plotly_chart_8")
         else:
             st.info("Train a label model first to analyze labeling function importance.")
     
@@ -1060,7 +1093,7 @@ def show_analysis():
                 title="Prediction Confidence Distribution",
                 labels={"x": "Max Probability", "y": "Count"}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_9")
         
         with col2:
             # Prediction distribution
@@ -1070,7 +1103,7 @@ def show_analysis():
                 names=pred_counts.index,
                 title="Predicted Label Distribution"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_10")
         
         # High and low confidence examples
         st.markdown("### Confidence Analysis")
@@ -1154,6 +1187,15 @@ def show_analysis():
         if st.button("Calculate Uncertainty", key="uncertainty_btn"):
             with st.spinner("Calculating uncertainty estimates..."):
                 try:
+                    # Check if model is fitted
+                    if not hasattr(model, 'class_priors_') or model.class_priors_ is None:
+                        st.error("Model must be fitted before uncertainty estimation. Please train the model first.")
+                        return
+                    
+                    if not HAS_ANALYTICS:
+                        st.error("Analytics modules are not available. Some features may be limited.")
+                        return
+                    
                     uncertainty_quantifier = UncertaintyQuantifier(model)
                     predictions, probabilities, lower_bounds, upper_bounds = uncertainty_quantifier.predict_with_uncertainty(
                         st.session_state.lf_output,
@@ -1205,7 +1247,7 @@ def show_analysis():
                 title="Uncertainty Width Distribution",
                 labels={"x": "Uncertainty Width", "y": "Count"}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_11")
             
             # Examples with highest uncertainty
             st.markdown("#### Highest Uncertainty Examples")
@@ -1234,7 +1276,7 @@ def show_analysis():
                             arrayminus=prob_data['Probability'] - prob_data['Lower Bound']
                         )
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"uncertainty_quantification_plot_{i}")
         
         # Calibration analysis
         st.markdown("#### Model Calibration Analysis")
@@ -1268,7 +1310,7 @@ def show_analysis():
                 title="Confidence Distribution",
                 labels={"x": "Confidence", "y": "Frequency"}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_13")
     
     with tab5:
         st.markdown("### Advanced Evaluation")
@@ -1329,7 +1371,7 @@ def show_analysis():
             
             fig = px.pie(class_dist_df, values='Count', names='Class',
                         title="Predicted Class Distribution")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_14")
             
             # Weak Supervision Metrics
             st.markdown("#### Weak Supervision Metrics")
@@ -1358,7 +1400,7 @@ def show_analysis():
             
             fig = px.bar(coverage_dist_df, x='LFs_Covering', y='Count',
                         title="Examples Covered by K Labeling Functions")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_15")
             
             col1, col2 = st.columns(2)
             
@@ -1376,6 +1418,15 @@ def show_analysis():
         if st.button("Run Cross-Validation", key="cv_btn"):
             with st.spinner(f"Running {cv_folds}-fold cross-validation..."):
                 try:
+                    # Check if model is fitted
+                    if not hasattr(model, 'class_priors_') or model.class_priors_ is None:
+                        st.error("Model must be fitted before cross-validation. Please train the model first.")
+                        return
+                    
+                    if not HAS_ANALYTICS:
+                        st.error("Analytics modules are not available. Cross-validation requires analytics functionality.")
+                        return
+                    
                     cross_validator = CrossValidator(cv_folds=cv_folds, random_state=42)
                     
                     cv_results = cross_validator.cross_validate_ws(
@@ -1440,6 +1491,15 @@ def show_analysis():
         if st.button("Analyze LF Interactions", key="interpret_btn"):
             with st.spinner("Analyzing labeling function interactions..."):
                 try:
+                    # Check if model is fitted
+                    if not hasattr(model, 'class_priors_') or model.class_priors_ is None:
+                        st.error("Model must be fitted before LF interaction analysis. Please train the model first.")
+                        return
+                    
+                    if not HAS_ANALYTICS:
+                        st.error("Analytics modules are not available. Interpretability analysis requires analytics functionality.")
+                        return
+                    
                     model_analyzer = ModelAnalyzer(model)
                     
                     lf_analysis = model_analyzer.analyze_lf_interactions(st.session_state.lf_output)
@@ -1476,7 +1536,7 @@ def show_analysis():
                     title="Labeling Function Correlation Matrix"
                 )
                 fig.update_layout(height=500)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="plotly_chart_16")
             
             # Agreement analysis
             agreements = lf_analysis['agreements']
@@ -1545,7 +1605,7 @@ def show_results():
                 title="Predicted Label Counts",
                 labels={"x": "Label", "y": "Count"}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_17")
         
         with col2:
             fig = px.pie(
@@ -1553,7 +1613,7 @@ def show_results():
                 names=[f"Class {i}" for i in pred_counts.index],
                 title="Label Distribution"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="plotly_chart_18")
         
         # Quality indicators
         st.markdown("### Quality Indicators")

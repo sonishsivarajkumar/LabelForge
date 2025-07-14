@@ -69,8 +69,22 @@ integrations = [
     "mlflow>=2.0.0",  # MLflow experiment tracking
     "wandb>=0.15.0",  # Weights & Biases
 ]
+research = [
+    "scipy>=1.7.0",  # Statistical testing
+    "matplotlib>=3.5.0",  # Plotting
+    "seaborn>=0.11.0",  # Statistical visualization
+    "jupyter>=1.0.0",  # Jupyter notebook support
+    "ipywidgets>=7.6.0",  # Interactive widgets
+    "plotly>=5.0.0",  # Interactive plots
+    "kaleido>=0.2.1",  # Static image export for plotly
+]
+benchmarks = [
+    "requests>=2.25.0",  # For downloading benchmark datasets
+    "tqdm>=4.60.0",  # Progress bars
+    "tabulate>=0.8.9",  # Table formatting
+]
 all = [
-    "labelforge[dev,torch,web,integrations]",
+    "labelforge[dev,torch,web,integrations,research,benchmarks]",
 ]
 
 [project.urls]
