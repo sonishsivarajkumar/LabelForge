@@ -766,7 +766,7 @@ def show_label_model():
             
             with col1:
                 st.markdown("**Model Parameters:**")
-                st.write(f"- Cardinality: {st.session_state.label_model.cardinality}")
+                st.write(f"- Cardinality: {model.cardinality}")
                 st.write(f"- Maximum Iterations: {model.max_iter}")
                 st.write(f"- Tolerance: {model.tol}")
                 
@@ -821,7 +821,7 @@ def show_label_model():
                         'probabilities': probabilities.tolist(),
                         'examples': [ex.text for ex in st.session_state.examples],
                         'model_config': {
-                            'cardinality': st.session_state.label_model.cardinality,
+                            'cardinality': model.cardinality,
                             'max_iter': model.max_iter,
                             'tol': model.tol
                         }
@@ -1434,7 +1434,7 @@ def show_analysis():
                     cv_results = cross_validator.cross_validate_ws(
                         st.session_state.lf_output,
                         st.session_state.examples,
-                        model_params={'cardinality': st.session_state.label_model.cardinality}
+                        model_params={'cardinality': model.cardinality}
                     )
                     
                     st.session_state.cv_results = cv_results
@@ -1560,7 +1560,7 @@ def show_analysis():
                             st.write(f"**Number of conflicts:** {row['n_conflicts']}")
 
 
-def show_results():
+def show_research_benchmarking():
     """Show research tools and benchmarking features."""
     st.markdown('<div class="section-header">Research & Benchmarking</div>', unsafe_allow_html=True)
     
@@ -1606,17 +1606,6 @@ def show_results():
                 if st.button("Run Statistical Test", key="stat_test_btn"):
                     with st.spinner("Running statistical test..."):
                         try:
-                            # Placeholder for statistical test
-                            st.success("Statistical test functionality coming soon!")
-                        except Exception as e:
-                            st.error(f"Error: {str(e)}")
-            
-            except ImportError:
-                st.error("Statistical testing requires additional research modules.")
-        
-        if st.session_state.label_model is not None and st.session_state.lf_output is not None:
-            predictions = st.session_state.label_model.predict(st.session_state.lf_output)
-            probabilities = st.session_state.label_model.predict_proba(st.session_state.lf_output)
         
         # Quality indicators
         st.markdown("### Quality Indicators")
@@ -1646,7 +1635,7 @@ def show_results():
         with col1:
             label_filter = st.selectbox(
                 "Filter by predicted label:",
-                ["All"] + [f"Class {i}" for i in range(st.session_state.label_model.cardinality)]
+                ["All"] + [f"Class {i}" for i in range(model.cardinality)]
             )
         
         with col2:
@@ -1716,7 +1705,7 @@ def show_results():
                 
                 with col2:
                     st.write("**Probability Distribution:**")
-                    prob_data = {f"Class {i}": probabilities[idx, i] for i in range(st.session_state.label_model.cardinality)}
+                    prob_data = {f"Class {i}": probabilities[idx, i] for i in range(model.cardinality)}
                     st.bar_chart(prob_data)
                 
                 # Show LF votes for this example
@@ -1756,7 +1745,7 @@ def show_results():
                     export_data['predicted_labels'] = predictions.tolist()
                 
                 if "Probabilities" in include_options:
-                    for i in range(st.session_state.label_model.cardinality):
+                    for i in range(model.cardinality):
                         export_data[f'prob_class_{i}'] = probabilities[:, i].tolist()
                 
                 if "Confidence Scores" in include_options:
@@ -1771,7 +1760,7 @@ def show_results():
                 export_data['metadata'] = {
                     'num_examples': len(st.session_state.examples),
                     'num_labeling_functions': len(get_registered_lfs()),
-                    'model_cardinality': st.session_state.label_model.cardinality,
+                    'model_cardinality': model.cardinality,
                     'labeling_function_names': [lf.name for lf in get_registered_lfs()],
                     'export_timestamp': pd.Timestamp.now().isoformat()
                 }

@@ -22,25 +22,41 @@ from .memory import (
 )
 
 from .profiling import (
-    PerformanceProfiler,
+    ProfileResult,
+    BottleneckInfo,
     RuntimeProfiler,
-    MemoryProfiler,
-    BottleneckDetector,
     profile_function,
     benchmark_performance,
     profile_lf_application
 )
 
-# Add PerformanceMonitor as an alias for now
+# Add aliases for compatibility
+PerformanceProfiler = RuntimeProfiler
+MemoryProfiler = RuntimeProfiler
+BottleneckDetector = RuntimeProfiler
 PerformanceMonitor = RuntimeProfiler
+ParallelProcessor = ParallelLFApplicator
 
-from .acceleration import (
-    GPUAccelerator,
-    CUDALabelModel,
-    VectorizedOperations,
-    OptimizedMatrixOps,
-    batch_operations
-)
+# Placeholder classes for acceleration (TODO: implement)
+class GPUAccelerator:
+    """Placeholder for GPU acceleration."""
+    pass
+
+class CUDALabelModel:
+    """Placeholder for CUDA-accelerated LabelModel."""
+    pass
+
+class VectorizedOperations:
+    """Placeholder for vectorized operations."""
+    pass
+
+class OptimizedMatrixOps:
+    """Placeholder for optimized matrix operations."""
+    pass
+
+def batch_operations(*args, **kwargs):
+    """Placeholder for batch operations."""
+    pass
 
 __all__ = [
     # Parallel processing

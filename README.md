@@ -38,13 +38,25 @@ Weak supervision addresses the bottleneck of manual data labeling by allowing us
 **Label Model**: A generative model that estimates the true labels by learning the accuracy and correlation structure of the labeling functions.
 
 **Weak Supervision**: The paradigm of using multiple noisy, programmatic supervision sources instead of manual labels.
-```bash
-labelforge run --config config.yaml
-```
-Complete automation from raw data to trained models with configurable workflows
 
-**Analytics and Monitoring**
-- Real-time labeling function performance analysis
+### ✨ Recent Updates (v0.2.0)
+
+**🎉 Major Web Interface Improvements:**
+- ✅ Fixed critical `NameError: name 'show_results' is not defined` bug
+- ✅ Fully functional navigation between all pages (Overview, Data Upload, Labeling Functions, Label Model, Analysis, Results)
+- ✅ Complete Results & Export functionality with CSV, JSON, and Pickle export options
+- ✅ Robust import system with proper `PYTHONPATH` configuration
+- ✅ Enhanced error handling and debugging capabilities
+- ✅ Comprehensive analytics and visualization features
+
+**📋 Web Interface Features:**
+- Interactive data upload and preview
+- Visual labeling function creation (keyword, regex, custom code)
+- Real-time model training with performance metrics
+- Advanced analysis tools (LF performance, conflict detection, uncertainty quantification)
+- Results browsing with filtering and pagination
+- Multi-format export capabilities
+
 ## Installation
 
 LabelForge requires Python 3.8+ and can be installed from PyPI or source.
@@ -102,14 +114,66 @@ pip install streamlit plotly altair streamlit-aggrid
 
 LabelForge now includes a modern, interactive web interface perfect for researchers and practitioners who prefer visual tools:
 
+### Running the Web Interface
+
+**Method 1: Recommended**
 ```bash
-# Launch the web interface
-./start_web.sh
-# or
-streamlit run src/labelforge/web/app.py
+# Ensure you're in the project root directory
+cd LabelForge
+PYTHONPATH="$PWD/src:$PYTHONPATH" streamlit run src/labelforge/web/app.py --server.port 8504
 ```
 
-**Access at:** http://localhost:8501
+**Method 2: Alternative**
+```bash
+# Install with web dependencies first
+pip install streamlit plotly pandas numpy
+
+# Run with explicit Python path setup
+python -c "
+import sys
+import os
+sys.path.insert(0, 'src')
+os.environ['PYTHONPATH'] = 'src:' + os.environ.get('PYTHONPATH', '')
+import streamlit.web.cli as stcli
+sys.argv = ['streamlit', 'run', 'src/labelforge/web/app.py', '--server.port', '8504']
+stcli.main()
+"
+```
+
+**Access at:** http://localhost:8504
+
+### ⚠️ Important Notes
+
+**DO NOT:**
+- Run the web app without setting `PYTHONPATH` - this will cause import errors
+- Modify `src/labelforge/web/app.py` directly unless you understand the full codebase structure
+- Delete or rename core function definitions like `show_results()`, `show_analysis()`, etc.
+- Change function names in the navigation without updating the corresponding function definitions
+
+**ALWAYS:**
+- Set the `PYTHONPATH` environment variable to include the `src` directory
+- Run from the project root directory for proper imports
+- Use the recommended command above for the most reliable experience
+- Check that all required dependencies are installed before running
+
+### Troubleshooting
+
+**Import Errors:**
+```bash
+# If you see import errors, make sure PYTHONPATH is set correctly:
+export PYTHONPATH="$PWD/src:$PYTHONPATH"
+```
+
+**Function Not Found Errors:**
+- This usually means the web app file structure was corrupted
+- Check that all navigation functions exist: `show_overview()`, `show_data_upload()`, `show_labeling_functions()`, `show_label_model()`, `show_analysis()`, `show_results()`
+
+**Port Already in Use:**
+```bash
+# Kill existing Streamlit processes
+pkill -f streamlit
+# Then restart with the recommended command
+```
 
 ### Web Interface Features:
 - 📁 **Drag-and-drop data upload** (CSV, JSON, text files)
